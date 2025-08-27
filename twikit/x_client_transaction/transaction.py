@@ -1,3 +1,4 @@
+import asyncio
 import re
 import bs4
 import math
@@ -25,18 +26,25 @@ class ClientTransaction:
     DEFAULT_KEY_BYTES_INDICES = None
 
     def __init__(self):
-        self.home_page_response = None
+        self.__inited = False
+        self.init_lock = asyncio.Lock()
+
+    async def is_inited(self):
+        async with self.init_lock:
+            return self.__inited
 
     async def init(self, session, headers):
-        home_page_response = await handle_x_migration(session, headers)
+        async with self.init_lock:
+            home_page_response = await handle_x_migration(session, headers)
 
-        self.home_page_response = self.validate_response(home_page_response)
-        self.DEFAULT_ROW_INDEX, self.DEFAULT_KEY_BYTES_INDICES = await self.get_indices(
-            self.home_page_response, session, headers)
-        self.key = self.get_key(response=self.home_page_response)
-        self.key_bytes = self.get_key_bytes(key=self.key)
-        self.animation_key = self.get_animation_key(
-            key_bytes=self.key_bytes, response=self.home_page_response)
+            self.home_page_response = self.validate_response(home_page_response)
+            self.DEFAULT_ROW_INDEX, self.DEFAULT_KEY_BYTES_INDICES = await self.get_indices(
+                self.home_page_response, session, headers)
+            self.key = self.get_key(response=self.home_page_response)
+            self.key_bytes = self.get_key_bytes(key=self.key)
+            self.animation_key = self.get_animation_key(
+                key_bytes=self.key_bytes, response=self.home_page_response)
+            self.__inited = True
 
     async def get_indices(self, home_page_response, session, headers):
         key_byte_indices = []

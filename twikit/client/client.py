@@ -4,7 +4,6 @@ import asyncio
 import io
 import json
 import os
-
 import warnings
 from functools import partial
 from typing import Any, AsyncGenerator, Literal
@@ -15,6 +14,8 @@ import pyotp
 from httpx import AsyncClient, AsyncHTTPTransport, Response
 from httpx._utils import URLPattern
 
+from .gql import GQLClient
+from .v11 import V11Client
 from .._captcha import Capsolver
 from ..bookmark import BookmarkFolder
 from ..community import Community, CommunityMember
@@ -56,10 +57,7 @@ from ..utils import (
     find_entry_by_type,
     httpx_transport_to_url
 )
-from ..x_client_transaction.utils import handle_x_migration
 from ..x_client_transaction import ClientTransaction
-from .gql import GQLClient
-from .v11 import V11Client
 
 
 class Client:
@@ -90,12 +88,12 @@ class Client:
     """
 
     def __init__(
-        self,
-        language: str = 'en-US',
-        proxy: str | None = None,
-        captcha_solver: Capsolver | None = None,
-        user_agent: str | None = None,
-        **kwargs
+            self,
+            language: str = 'en-US',
+            proxy: str | None = None,
+            captcha_solver: Capsolver | None = None,
+            user_agent: str | None = None,
+            **kwargs
     ) -> None:
         if 'proxies' in kwargs:
             message = (
@@ -121,17 +119,17 @@ class Client:
         self.v11 = V11Client(self)
 
     async def request(
-        self,
-        method: str,
-        url: str,
-        auto_unlock: bool = True,
-        raise_exception: bool = True,
-        **kwargs
+            self,
+            method: str,
+            url: str,
+            auto_unlock: bool = True,
+            raise_exception: bool = True,
+            **kwargs
     ) -> tuple[dict | Any, Response]:
         ':meta private:'
         headers = kwargs.pop('headers', {})
 
-        if not self.client_transaction.home_page_response:
+        if not await self.client_transaction.is_inited():
             cookies_backup = self.get_cookies().copy()
             ct_headers = {
                 'Accept-Language': f'{self.language},{self.language.split("-")[0]};q=0.9',
@@ -279,18 +277,18 @@ class Client:
         return guest_token
 
     async def _ui_metrics(self) -> str:
-        response, _ = await self.get(f'https://twitter.com/i/js_inst?c_name=ui_metrics') # keep twitter.com here
+        response, _ = await self.get(f'https://twitter.com/i/js_inst?c_name=ui_metrics')  # keep twitter.com here
         return response
 
     async def login(
-        self,
-        *,
-        auth_info_1: str,
-        auth_info_2: str | None = None,
-        password: str,
-        totp_secret: str | None = None,
-        cookies_file: str | None = None,
-        enable_ui_metrics: bool = True
+            self,
+            *,
+            auth_info_1: str,
+            auth_info_2: str | None = None,
+            password: str,
+            totp_secret: str | None = None,
+            cookies_file: str | None = None,
+            enable_ui_metrics: bool = True
     ) -> dict:
         """
         Logs into the account using the specified login information.
@@ -551,8 +549,8 @@ class Client:
                     ui_metrics=True
                 )
             finished = (
-                response.next_request is not None and
-                response.next_request.url.path == '/'
+                    response.next_request is not None and
+                    response.next_request.url.path == '/'
             )
             if finished:
                 return
@@ -678,11 +676,11 @@ class Client:
         return await self.get_user_by_id(await self.user_id())
 
     async def search_tweet(
-        self,
-        query: str,
-        product: Literal['Top', 'Latest', 'Media'],
-        count: int = 20,
-        cursor: str | None = None
+            self,
+            query: str,
+            product: Literal['Top', 'Latest', 'Media'],
+            count: int = 20,
+            cursor: str | None = None
     ) -> Result[Tweet]:
         """
         Searches for tweets based on the specified query and
@@ -764,7 +762,7 @@ class Client:
                 tweet = tweet_from_data(self, item)
             except KeyError:
                 tweet = None
-                
+
             if tweet is not None:
                 results.append(tweet)
 
@@ -786,10 +784,10 @@ class Client:
         )
 
     async def search_user(
-        self,
-        query: str,
-        count: int = 20,
-        cursor: str | None = None
+            self,
+            query: str,
+            count: int = 20,
+            cursor: str | None = None
     ) -> Result[User]:
         """
         Searches for users based on the provided query.
@@ -876,10 +874,10 @@ class Client:
         return results
 
     async def get_user_highlights_tweets(
-        self,
-        user_id: str,
-        count: int = 20,
-        cursor: str | None = None
+            self,
+            user_id: str,
+            count: int = 20,
+            cursor: str | None = None
     ) -> Result[Tweet]:
         """
         Retrieves highlighted tweets from a user's timeline.
@@ -943,13 +941,13 @@ class Client:
         )
 
     async def upload_media(
-        self,
-        source: str | bytes,
-        wait_for_completion: bool = False,
-        status_check_interval: float | None = None,
-        media_type: str | None = None,
-        media_category: str | None = None,
-        is_long_video: bool = False
+            self,
+            source: str | bytes,
+            wait_for_completion: bool = False,
+            status_check_interval: float | None = None,
+            media_type: str | None = None,
+            media_category: str | None = None,
+            is_long_video: bool = False
     ) -> str:
         """
         Uploads media to twitter.
@@ -1074,7 +1072,7 @@ class Client:
         return media_id
 
     async def check_media_status(
-        self, media_id: str, is_long_video: bool = False
+            self, media_id: str, is_long_video: bool = False
     ) -> dict:
         """
         Check the status of uploaded media.
@@ -1094,10 +1092,10 @@ class Client:
         return response
 
     async def create_media_metadata(
-        self,
-        media_id: str,
-        alt_text: str | None = None,
-        sensitive_warning: list[Literal['adult_content', 'graphic_violence', 'other']] = None
+            self,
+            media_id: str,
+            alt_text: str | None = None,
+            sensitive_warning: list[Literal['adult_content', 'graphic_violence', 'other']] = None
     ) -> Response:
         """
         Adds metadata to uploaded media.
@@ -1130,9 +1128,9 @@ class Client:
         return response
 
     async def create_poll(
-        self,
-        choices: list[str],
-        duration_minutes: int
+            self,
+            choices: list[str],
+            duration_minutes: int
     ) -> str:
         """
         Creates a poll and returns card-uri.
@@ -1163,11 +1161,11 @@ class Client:
         return response['card_uri']
 
     async def vote(
-        self,
-        selected_choice: str,
-        card_uri: str,
-        tweet_id: str,
-        card_name: str
+            self,
+            selected_choice: str,
+            card_uri: str,
+            tweet_id: str,
+            card_name: str
     ) -> Poll:
         """
         Vote on a poll with the selected choice.
@@ -1194,18 +1192,18 @@ class Client:
         return Poll(self, card_data, None)
 
     async def create_tweet(
-        self,
-        text: str = '',
-        media_ids: list[str] | None = None,
-        poll_uri: str | None = None,
-        reply_to: str | None = None,
-        conversation_control: Literal['followers', 'verified', 'mentioned'] | None = None,
-        attachment_url: str | None = None,
-        community_id: str | None = None,
-        share_with_followers: bool = False,
-        is_note_tweet: bool = False,
-        richtext_options: list[dict] = None,
-        edit_tweet_id: str | None = None
+            self,
+            text: str = '',
+            media_ids: list[str] | None = None,
+            poll_uri: str | None = None,
+            reply_to: str | None = None,
+            conversation_control: Literal['followers', 'verified', 'mentioned'] | None = None,
+            attachment_url: str | None = None,
+            community_id: str | None = None,
+            share_with_followers: bool = False,
+            is_note_tweet: bool = False,
+            richtext_options: list[dict] = None,
+            edit_tweet_id: str | None = None
     ) -> Tweet:
         """
         Creates a new tweet on Twitter with the specified
@@ -1307,10 +1305,10 @@ class Client:
         return tweet_from_data(self, _result)
 
     async def create_scheduled_tweet(
-        self,
-        scheduled_at: int,
-        text: str = '',
-        media_ids: list[str] | None = None,
+            self,
+            scheduled_at: int,
+            text: str = '',
+            media_ids: list[str] | None = None,
     ) -> str:
         """
         Schedules a tweet to be posted at a specified timestamp.
@@ -1432,8 +1430,8 @@ class Client:
         return User(self, user_data)
 
     async def reverse_geocode(
-        self, lat: float, long: float, accuracy: str | float | None = None,
-        granularity: str | None = None, max_results: int | None = None
+            self, lat: float, long: float, accuracy: str | float | None = None,
+            granularity: str | None = None, max_results: int | None = None
     ) -> list[Place]:
         """
         Given a latitude and a longitude, searches for up to 20 places that
@@ -1460,9 +1458,9 @@ class Client:
         return _places_from_response(self, response)
 
     async def search_geo(
-        self, lat: float | None = None, long: float | None = None,
-        query: str | None = None, ip: str | None = None,
-        granularity: str | None = None, max_results: int | None = None
+            self, lat: float | None = None, long: float | None = None,
+            query: str | None = None, ip: str | None = None,
+            granularity: str | None = None, max_results: int | None = None
     ) -> list[Place]:
         """
         Search for places that can be attached to a Tweet via POST
@@ -1509,7 +1507,7 @@ class Client:
         return Place(self, response)
 
     async def _get_more_replies(
-        self, tweet_id: str, cursor: str
+            self, tweet_id: str, cursor: str
     ) -> Result[Tweet]:
         response, _ = await self.gql.tweet_detail(tweet_id, cursor)
         entries = find_dict(response, 'entries', find_one=True)[0]
@@ -1536,7 +1534,7 @@ class Client:
         )
 
     async def _show_more_replies(
-        self, tweet_id: str, cursor: str
+            self, tweet_id: str, cursor: str
     ) -> Result[Tweet]:
         response, _ = await self.gql.tweet_detail(tweet_id, cursor)
         items = find_dict(response, 'moduleItems', find_one=True)[0]
@@ -1550,7 +1548,7 @@ class Client:
         return Result(results)
 
     async def get_tweet_by_id(
-        self, tweet_id: str, cursor: str | None = None
+            self, tweet_id: str, cursor: str | None = None
     ) -> Tweet:
         """
         Fetches a tweet by tweet ID.
@@ -1708,7 +1706,7 @@ class Client:
         return response
 
     async def _get_tweet_engagements(
-        self, tweet_id: str, count: int, cursor: str, f
+            self, tweet_id: str, count: int, cursor: str, f
     ) -> Result[User]:
         """
         Base function to get tweet engagements.
@@ -1742,7 +1740,7 @@ class Client:
         )
 
     async def get_retweeters(
-        self, tweet_id: str, count: int = 40, cursor: str | None = None
+            self, tweet_id: str, count: int = 40, cursor: str | None = None
     ) -> Result[User]:
         """
         Retrieve users who retweeted a specific tweet.
@@ -1775,7 +1773,7 @@ class Client:
         return await self._get_tweet_engagements(tweet_id, count, cursor, self.gql.retweeters)
 
     async def get_favoriters(
-        self, tweet_id: str, count: int = 40, cursor: str | None = None
+            self, tweet_id: str, count: int = 40, cursor: str | None = None
     ) -> Result[User]:
         """
         Retrieve users who favorited a specific tweet.
@@ -1841,11 +1839,11 @@ class Client:
         return CommunityNote(self, note_data)
 
     async def get_user_tweets(
-        self,
-        user_id: str,
-        tweet_type: Literal['Tweets', 'Replies', 'Media', 'Likes'],
-        count: int = 40,
-        cursor: str | None = None
+            self,
+            user_id: str,
+            tweet_type: Literal['Tweets', 'Replies', 'Media', 'Likes'],
+            count: int = 40,
+            cursor: str | None = None
     ) -> Result[Tweet]:
         """
         Fetches tweets from a specific user's timeline.
@@ -1959,10 +1957,10 @@ class Client:
         )
 
     async def get_timeline(
-        self,
-        count: int = 20,
-        seen_tweet_ids: list[str] | None = None,
-        cursor: str | None = None
+            self,
+            count: int = 20,
+            seen_tweet_ids: list[str] | None = None,
+            cursor: str | None = None
     ) -> Result[Tweet]:
         """
         Retrieves the timeline.
@@ -2019,10 +2017,10 @@ class Client:
         )
 
     async def get_latest_timeline(
-        self,
-        count: int = 20,
-        seen_tweet_ids: list[str] | None = None,
-        cursor: str | None = None
+            self,
+            count: int = 20,
+            seen_tweet_ids: list[str] | None = None,
+            cursor: str | None = None
     ) -> Result[Tweet]:
         """
         Retrieves the timeline.
@@ -2183,7 +2181,7 @@ class Client:
         return response
 
     async def bookmark_tweet(
-        self, tweet_id: str, folder_id: str | None = None
+            self, tweet_id: str, folder_id: str | None = None
     ) -> Response:
         """
         Adds the tweet to bookmarks.
@@ -2238,8 +2236,8 @@ class Client:
         return response
 
     async def get_bookmarks(
-        self, count: int = 20,
-        cursor: str | None = None, folder_id: str | None = None
+            self, count: int = 20,
+            cursor: str | None = None, folder_id: str | None = None
     ) -> Result[Tweet]:
         """
         Retrieves bookmarks from the authenticated user's Twitter account.
@@ -2357,7 +2355,7 @@ class Client:
         )
 
     async def edit_bookmark_folder(
-        self, folder_id: str, name: str
+            self, folder_id: str, name: str
     ) -> BookmarkFolder:
         """
         Edits a bookmark folder.
@@ -2551,11 +2549,11 @@ class Client:
         return User(self, build_user_data(response))
 
     async def get_trends(
-        self,
-        category: Literal['trending', 'for-you', 'news', 'sports', 'entertainment'],
-        count: int = 20,
-        retry: bool = True,
-        additional_request_params: dict | None = None
+            self,
+            category: Literal['trending', 'for-you', 'news', 'sports', 'entertainment'],
+            count: int = 20,
+            retry: bool = True,
+            additional_request_params: dict | None = None
     ) -> list[Trend]:
         """
         Retrieves trending topics on Twitter.
@@ -2644,11 +2642,11 @@ class Client:
         return trend_data
 
     async def _get_user_friendship(
-        self,
-        user_id: str,
-        count: int,
-        f,
-        cursor: str | None
+            self,
+            user_id: str,
+            count: int,
+            f,
+            cursor: str | None
     ) -> Result[User]:
         """
         Base function to get friendship.
@@ -2684,8 +2682,8 @@ class Client:
         )
 
     async def _get_user_friendship_2(
-        self, user_id: str, screen_name: str,
-        count: int, f, cursor: str
+            self, user_id: str, screen_name: str,
+            count: int, f, cursor: str
     ) -> Result[User]:
         response, _ = await f(user_id, screen_name, count, cursor)
         users = response['users']
@@ -2705,7 +2703,7 @@ class Client:
         )
 
     async def get_user_followers(
-        self, user_id: str, count: int = 20, cursor: str | None = None
+            self, user_id: str, count: int = 20, cursor: str | None = None
     ) -> Result[User]:
         """
         Retrieves a list of followers for a given user.
@@ -2727,8 +2725,8 @@ class Client:
         )
 
     async def get_latest_followers(
-        self, user_id: str | None = None, screen_name: str | None = None,
-        count: int = 200, cursor: str | None = None
+            self, user_id: str | None = None, screen_name: str | None = None,
+            count: int = 200, cursor: str | None = None
     ) -> Result[User]:
         """
         Retrieves the latest followers.
@@ -2739,8 +2737,8 @@ class Client:
         )
 
     async def get_latest_friends(
-        self, user_id: str | None = None, screen_name: str | None = None,
-        count: int = 200, cursor: str | None = None
+            self, user_id: str | None = None, screen_name: str | None = None,
+            count: int = 200, cursor: str | None = None
     ) -> Result[User]:
         """
         Retrieves the latest friends (following users).
@@ -2751,7 +2749,7 @@ class Client:
         )
 
     async def get_user_verified_followers(
-        self, user_id: str, count: int = 20, cursor: str | None = None
+            self, user_id: str, count: int = 20, cursor: str | None = None
     ) -> Result[User]:
         """
         Retrieves a list of verified followers for a given user.
@@ -2773,7 +2771,7 @@ class Client:
         )
 
     async def get_user_followers_you_know(
-        self, user_id: str, count: int = 20, cursor: str | None = None
+            self, user_id: str, count: int = 20, cursor: str | None = None
     ) -> Result[User]:
         """
         Retrieves a list of common followers.
@@ -2795,7 +2793,7 @@ class Client:
         )
 
     async def get_user_following(
-        self, user_id: str, count: int = 20, cursor: str | None = None
+            self, user_id: str, count: int = 20, cursor: str | None = None
     ) -> Result[User]:
         """
         Retrieves a list of users whom the given user is following.
@@ -2817,7 +2815,7 @@ class Client:
         )
 
     async def get_user_subscriptions(
-        self, user_id: str, count: int = 20, cursor: str | None = None
+            self, user_id: str, count: int = 20, cursor: str | None = None
     ) -> Result[User]:
         """
         Retrieves a list of users to which the specified user is subscribed.
@@ -2839,12 +2837,12 @@ class Client:
         )
 
     async def _get_friendship_ids(
-        self,
-        user_id: str | None,
-        screen_name: str | None,
-        count: int,
-        f,
-        cursor: str | None
+            self,
+            user_id: str | None,
+            screen_name: str | None,
+            count: int,
+            f,
+            cursor: str | None
     ) -> Result[int]:
         response, _ = await f(user_id, screen_name, count, cursor)
         previous_cursor = response['previous_cursor']
@@ -2859,11 +2857,11 @@ class Client:
         )
 
     async def get_followers_ids(
-        self,
-        user_id: str | None = None,
-        screen_name: str | None = None,
-        count: int = 5000,
-        cursor: str | None = None
+            self,
+            user_id: str | None = None,
+            screen_name: str | None = None,
+            count: int = 5000,
+            cursor: str | None = None
     ) -> Result[int]:
         """
         Fetches the IDs of the followers of a specified user.
@@ -2885,11 +2883,11 @@ class Client:
         return await self._get_friendship_ids(user_id, screen_name, count, self.v11.followers_ids, cursor)
 
     async def get_friends_ids(
-        self,
-        user_id: str | None = None,
-        screen_name: str | None = None,
-        count: int = 5000,
-        cursor: str | None = None
+            self,
+            user_id: str | None = None,
+            screen_name: str | None = None,
+            count: int = 5000,
+            cursor: str | None = None
     ) -> Result[int]:
         """
         Fetches the IDs of the friends (following users) of a specified user.
@@ -2913,11 +2911,11 @@ class Client:
         )
 
     async def _send_dm(
-        self,
-        conversation_id: str,
-        text: str,
-        media_id: str | None,
-        reply_to: str | None
+            self,
+            conversation_id: str,
+            text: str,
+            media_id: str | None,
+            reply_to: str | None
     ) -> dict:
         """
         Base function to send dm.
@@ -2926,9 +2924,9 @@ class Client:
         return response
 
     async def _get_dm_history(
-        self,
-        conversation_id: str,
-        max_id: str | None = None
+            self,
+            conversation_id: str,
+            max_id: str | None = None
     ) -> dict:
         """
         Base function to get dm history.
@@ -2937,11 +2935,11 @@ class Client:
         return response
 
     async def send_dm(
-        self,
-        user_id: str,
-        text: str,
-        media_id: str | None = None,
-        reply_to: str | None = None
+            self,
+            user_id: str,
+            text: str,
+            media_id: str | None = None,
+            reply_to: str | None = None
     ) -> Message:
         """
         Send a direct message to a user.
@@ -2992,7 +2990,7 @@ class Client:
         )
 
     async def add_reaction_to_message(
-        self, message_id: str, conversation_id: str, emoji: str
+            self, message_id: str, conversation_id: str, emoji: str
     ) -> Response:
         """
         Adds a reaction emoji to a specific message in a conversation.
@@ -3026,7 +3024,7 @@ class Client:
         return response
 
     async def remove_reaction_from_message(
-        self, message_id: str, conversation_id: str, emoji: str
+            self, message_id: str, conversation_id: str, emoji: str
     ) -> Response:
         """
         Remove a reaction from a message.
@@ -3081,9 +3079,9 @@ class Client:
         return response
 
     async def get_dm_history(
-        self,
-        user_id: str,
-        max_id: str | None = None
+            self,
+            user_id: str,
+            max_id: str | None = None
     ) -> Result[Message]:
         """
         Retrieves the DM conversation history with a specific user.
@@ -3127,7 +3125,7 @@ class Client:
         if 'entries' not in response['conversation_timeline']:
             return Result([])
         items = response['conversation_timeline']['entries']
-        
+
         messages = []
         for item in items:
             message_info = item['message']['message_data']
@@ -3145,11 +3143,11 @@ class Client:
         )
 
     async def send_dm_to_group(
-        self,
-        group_id: str,
-        text: str,
-        media_id: str | None = None,
-        reply_to: str | None = None
+            self,
+            group_id: str,
+            text: str,
+            media_id: str | None = None,
+            reply_to: str | None = None
     ) -> GroupMessage:
         """
         Sends a message to a group.
@@ -3199,9 +3197,9 @@ class Client:
         )
 
     async def get_group_dm_history(
-        self,
-        group_id: str,
-        max_id: str | None = None
+            self,
+            group_id: str,
+            max_id: str | None = None
     ) -> Result[GroupMessage]:
         """
         Retrieves the DM conversation history in a group.
@@ -3279,7 +3277,7 @@ class Client:
         return Group(self, group_id, response)
 
     async def add_members_to_group(
-        self, group_id: str, user_ids: list[str]
+            self, group_id: str, user_ids: list[str]
     ) -> Response:
         """Adds members to a group.
 
@@ -3323,7 +3321,7 @@ class Client:
         return response
 
     async def create_list(
-        self, name: str, description: str = '', is_private: bool = False
+            self, name: str, description: str = '', is_private: bool = False
     ) -> List:
         """
         Creates a list.
@@ -3398,11 +3396,11 @@ class Client:
         return response
 
     async def edit_list(
-        self,
-        list_id: str,
-        name: str | None = None,
-        description: str | None = None,
-        is_private: bool | None = None
+            self,
+            list_id: str,
+            name: str | None = None,
+            description: str | None = None,
+            is_private: bool | None = None
     ) -> List:
         """
         Edits list information.
@@ -3483,7 +3481,7 @@ class Client:
         return List(self, response['data']['list'])
 
     async def get_lists(
-        self, count: int = 100, cursor: str = None
+            self, count: int = 100, cursor: str = None
     ) -> Result[List]:
         """
         Retrieves a list of user lists.
@@ -3550,7 +3548,7 @@ class Client:
         return List(self, list_data_[0])
 
     async def get_list_tweets(
-        self, list_id: str, count: int = 20, cursor: str | None = None
+            self, list_id: str, count: int = 20, cursor: str | None = None
     ) -> Result[Tweet]:
         """
         Retrieves tweets from a list.
@@ -3634,7 +3632,7 @@ class Client:
         )
 
     async def get_list_members(
-        self, list_id: str, count: int = 20, cursor: str | None = None
+            self, list_id: str, count: int = 20, cursor: str | None = None
     ) -> Result[User]:
         """Retrieves members of a list.
 
@@ -3664,7 +3662,7 @@ class Client:
         return await self._get_list_users(self.gql.list_members, list_id, count, cursor)
 
     async def get_list_subscribers(
-        self, list_id: str, count: int = 20, cursor: str | None = None
+            self, list_id: str, count: int = 20, cursor: str | None = None
     ) -> Result[User]:
         """Retrieves subscribers of a list.
 
@@ -3694,7 +3692,7 @@ class Client:
         return await self._get_list_users(self.gql.list_subscribers, list_id, count, cursor)
 
     async def search_list(
-        self, query: str, count: int = 20, cursor: str | None = None
+            self, query: str, count: int = 20, cursor: str | None = None
     ) -> Result[List]:
         """
         Search for lists based on the provided query.
@@ -3743,10 +3741,10 @@ class Client:
         )
 
     async def get_notifications(
-        self,
-        type: Literal['All', 'Verified', 'Mentions'],
-        count: int = 40,
-        cursor: str | None = None
+            self,
+            type: Literal['All', 'Verified', 'Mentions'],
+            count: int = 40,
+            cursor: str | None = None
     ) -> Result[Notification]:
         """
         Retrieve notifications based on the provided type.
@@ -3811,7 +3809,7 @@ class Client:
             else:
                 tweet = None
 
-            from_users  = user_actions['fromUsers']
+            from_users = user_actions['fromUsers']
             if from_users and 'user' in from_users[0]:
                 user_id = from_users[0]['user']['id']
                 user = users[user_id]
@@ -3837,7 +3835,7 @@ class Client:
         )
 
     async def search_community(
-        self, query: str, cursor: str | None = None
+            self, query: str, cursor: str | None = None
     ) -> Result[Community]:
         """
         Searchs communities based on the specified query.
@@ -3901,11 +3899,11 @@ class Client:
         return Community(self, community_data)
 
     async def get_community_tweets(
-        self,
-        community_id: str,
-        tweet_type: Literal['Top', 'Latest', 'Media'],
-        count: int = 40,
-        cursor: str | None = None
+            self,
+            community_id: str,
+            tweet_type: Literal['Top', 'Latest', 'Media'],
+            count: int = 40,
+            cursor: str | None = None
     ) -> Result[Tweet]:
         """
         Retrieves tweets from a community.
@@ -3977,7 +3975,7 @@ class Client:
         )
 
     async def get_communities_timeline(
-        self, count: int = 20, cursor: str | None = None
+            self, count: int = 20, cursor: str | None = None
     ) -> Result[Tweet]:
         """
         Retrieves tweets from communities timeline.
@@ -4069,7 +4067,7 @@ class Client:
         return Community(self, community_data)
 
     async def request_to_join_community(
-        self, community_id: str, answer: str | None = None
+            self, community_id: str, answer: str | None = None
     ) -> Community:
         """
         Request to join a community.
@@ -4120,7 +4118,7 @@ class Client:
         )
 
     async def get_community_members(
-        self, community_id: str, count: int = 20, cursor: str | None = None
+            self, community_id: str, count: int = 20, cursor: str | None = None
     ) -> Result[CommunityMember]:
         """
         Retrieves members of a community.
@@ -4142,7 +4140,7 @@ class Client:
         )
 
     async def get_community_moderators(
-        self, community_id: str, count: int = 20, cursor: str | None = None
+            self, community_id: str, count: int = 20, cursor: str | None = None
     ) -> Result[CommunityMember]:
         """
         Retrieves moderators of a community.
@@ -4164,11 +4162,11 @@ class Client:
         )
 
     async def search_community_tweet(
-        self,
-        community_id: str,
-        query: str,
-        count: int = 20,
-        cursor: str | None = None
+            self,
+            community_id: str,
+            query: str,
+            count: int = 20,
+            cursor: str | None = None
     ) -> Result[Tweet]:
         """Searchs tweets in a community.
 
@@ -4226,7 +4224,7 @@ class Client:
                 yield data.get('topic'), payload
 
     async def get_streaming_session(
-        self, topics: set[str], auto_reconnect: bool = True
+            self, topics: set[str], auto_reconnect: bool = True
     ) -> StreamingSession:
         """
         Returns a session for interacting with the streaming API.
@@ -4301,10 +4299,10 @@ class Client:
         return StreamingSession(self, session_id, stream, topics, auto_reconnect)
 
     async def _update_subscriptions(
-        self,
-        session: StreamingSession,
-        subscribe: set[str] | None = None,
-        unsubscribe: set[str] | None = None
+            self,
+            session: StreamingSession,
+            subscribe: set[str] | None = None,
+            unsubscribe: set[str] | None = None
     ) -> Payload:
         if subscribe is None:
             subscribe = set()

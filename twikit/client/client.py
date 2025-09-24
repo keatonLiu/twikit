@@ -3,9 +3,12 @@ from __future__ import annotations
 import asyncio
 import io
 import json
+import logging
+import multiprocessing
 import os
 import warnings
 from functools import partial
+from queue import Empty
 from typing import Any, AsyncGenerator, Literal
 from urllib.parse import urlparse
 
@@ -58,6 +61,15 @@ from ..utils import (
     httpx_transport_to_url
 )
 from ..x_client_transaction import ClientTransaction
+from ..xpff.xpffGenerator import XPFFHeaderGenerator
+
+
+def _target(q, func, data):
+    try:
+        result = func(data)
+        q.put(result)
+    except Exception as e:
+        q.put(e)
 
 
 class Client:
@@ -109,6 +121,7 @@ class Client:
         if captcha_solver is not None:
             captcha_solver.client = self
         self.client_transaction = ClientTransaction()
+        self.logger = kwargs.get('logger', logging.getLogger(__name__))
 
         self._token = TOKEN
         self._user_id = None
@@ -117,6 +130,50 @@ class Client:
 
         self.gql = GQLClient(self)
         self.v11 = V11Client(self)
+        self.xpff = XPFFHeaderGenerator(user_agent=user_agent)
+
+    async def init_transaction(self):
+        cookies_backup = self.get_cookies().copy()
+        ct_headers = {
+            'Accept-Language': f'{self.language},{self.language.split("-")[0]};q=0.9',
+            'Cache-Control': 'no-cache',
+            'Referer': f'https://{DOMAIN}',
+            'User-Agent': self._user_agent
+        }
+        await self.client_transaction.init(self.http, ct_headers)
+        self.set_cookies(cookies_backup, clear_cookies=True)
+
+    async def get_ui_metrics(self):
+        metrics_data = await self._ui_metrics()
+        ui_metrics_response = await self.run_in_process_with_timeout(
+            solve_ui_metrics,
+            metrics_data,
+            timeout=10
+        )
+        return ui_metrics_response
+
+    async def run_in_process_with_timeout(self, func, arg, timeout: float):
+        """
+        在子进程中运行 func(arg)，超时会杀掉进程。
+        返回 func 的结果，超时或异常返回空字符串
+        """
+        queue = multiprocessing.Queue()
+
+        proc = multiprocessing.Process(target=_target, args=(queue, func, arg), name="ProcessWithTimeout")
+        proc.start()
+
+        try:
+            # 等待队列返回结果，同时设置 asyncio 超时
+            result = await asyncio.to_thread(queue.get, True, timeout)
+            return result
+        except (asyncio.TimeoutError, Empty):
+            self.logger.warning("Process timed out, terminating...")
+            if proc.is_alive():
+                proc.kill()
+                proc.join()
+            return ''
+        finally:
+            proc.join(timeout=0.1)
 
     async def request(
             self,
@@ -141,7 +198,12 @@ class Client:
             self.set_cookies(cookies_backup, clear_cookies=True)
 
         tid = self.client_transaction.generate_transaction_id(method=method, path=urlparse(url).path)
+        if not tid:
+            self.logger.warning(f"Failed to generate transaction id for {method} {url}")
+
         headers['X-Client-Transaction-Id'] = tid
+        if guest_id := self.http.cookies.get('guest_id'):
+            headers['X-Xp-Forwarded-For'] = self.xpff.gen(guest_id)
 
         cookies_backup = self.get_cookies().copy()
         response = await self.http.request(method, url, headers=headers, **kwargs)
@@ -394,9 +456,7 @@ class Client:
         await flow.sso_init('apple')
 
         if enable_ui_metrics:
-            ui_metrics_response = solve_ui_metrics(
-                await self._ui_metrics()
-            )
+            ui_metrics_response = await self.get_ui_metrics()
         else:
             ui_metrics_response = ''
 
@@ -595,8 +655,20 @@ class Client:
         .get_cookies
         .set_cookies
         """
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(self.get_cookies(), f)
+        cookies_dict = [
+            {
+                "name": c.name,
+                "value": c.value,
+                "domain": c.domain,
+                "path": c.path,
+                "secure": c.secure,
+                "expires": c.expires,
+            }
+            for c in self.http.cookies.jar
+        ]
+
+        with open(path, "w") as f:
+            json.dump(cookies_dict, f, ensure_ascii=False, indent=4)
 
     def set_cookies(self, cookies: dict, clear_cookies: bool = False) -> None:
         """
@@ -644,7 +716,24 @@ class Client:
         .set_cookies
         """
         with open(path, 'r', encoding='utf-8') as f:
-            self.set_cookies(json.load(f))
+            cookies_list = json.load(f)
+
+        self.http.cookies.clear()
+        if isinstance(cookies_list, dict):
+            # 兼容简化版：只包含 name:value
+            for name, value in cookies_list.items():
+                self.http.cookies.set(name, value, domain='.x.com', path="/")
+        elif isinstance(cookies_list, list):
+            # 兼容完整版：[{name, value, domain, path}, ...]
+            for item in cookies_list:
+                self.http.cookies.set(
+                    item["name"],
+                    item["value"],
+                    domain=item.get("domain") or '.x.com',
+                    path=item.get("path", "/")
+                )
+        else:
+            raise ValueError("Unsupported cookie format")
 
     def set_delegate_account(self, user_id: str | None) -> None:
         """
@@ -726,7 +815,7 @@ class Client:
         """
         product = product.capitalize()
 
-        response, _ = await self.gql.search_timeline(query, product, count, cursor)
+        response, _ = await self.gql.search_timeline(query, product, count, cursor, query_source)
         instructions = find_dict(response, 'instructions', find_one=True)
         if not instructions:
             return Result([])
@@ -777,9 +866,9 @@ class Client:
 
         return Result(
             results,
-            partial(self.search_tweet, query, product, count, next_cursor),
+            partial(self.search_tweet, query, product, count, next_cursor, query_source),  # noqa
             next_cursor,
-            partial(self.search_tweet, query, product, count, previous_cursor),
+            partial(self.search_tweet, query, product, count, previous_cursor, query_source),  # noqa
             previous_cursor
         )
 

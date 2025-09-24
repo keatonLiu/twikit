@@ -26,6 +26,7 @@ from ..utils import Result, find_dict, find_entry_by_type, httpx_transport_to_ur
 from ..x_client_transaction import ClientTransaction
 from .tweet import Tweet
 from .user import User
+from ..xpff.xpffGenerator import XPFFHeaderGenerator
 
 
 def tweet_from_data(client: GuestClient, data: dict) -> Tweet:
@@ -95,6 +96,7 @@ class GuestClient:
         self.gql = GQLClient(self)
         self.v11 = V11Client(self)
         self.client_transaction = ClientTransaction()
+        self.xpff = XPFFHeaderGenerator(user_agent=self._user_agent)
 
     async def request(
         self,
@@ -119,6 +121,8 @@ class GuestClient:
 
         tid = self.client_transaction.generate_transaction_id(method=method, path=urlparse(url).path)
         headers['X-Client-Transaction-Id'] = tid
+        if guest_id := self.http.cookies.get('guest_id'):
+            headers['X-Xp-Forwarded-For'] = self.xpff.gen(guest_id)
 
         response = await self.http.request(method, url, headers=headers, **kwargs)
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal, Any
 
 from ..constants import (
     DOMAIN,
@@ -142,17 +142,19 @@ class GQLClient:
         return await self.base.post(url, json=data, headers=headers, **kwargs)
 
     async def search_timeline(
-        self,
-        query: str,
-        product: str,
-        count: int,
-        cursor: str | None
+            self,
+            query: str,
+            product: str,
+            count: int,
+            cursor: str | None,
+            query_source: Literal['typed_query', 'trend_click'] = 'typed_query',
     ):
         variables = {
             'rawQuery': query,
             'count': count,
-            'querySource': 'typed_query',
-            'product': product
+            'querySource': query_source,
+            'product': product,
+            "withGrokTranslatedBio": "false",
         }
         if cursor is not None:
             variables['cursor'] = cursor
@@ -223,7 +225,7 @@ class GQLClient:
             features = FEATURES
         return await self.gql_post(endpoint, variables, features)
 
-    async def create_scheduled_tweet(self, scheduled_at, text, media_ids) -> str:
+    async def create_scheduled_tweet(self, scheduled_at, text, media_ids) -> tuple[dict | Any, Any]:
         variables = {
             'post_tweet_request': {
             'auto_populate_reply_metadata': False,

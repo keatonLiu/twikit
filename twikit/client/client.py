@@ -769,7 +769,8 @@ class Client:
             query: str,
             product: Literal['Top', 'Latest', 'Media'],
             count: int = 20,
-            cursor: str | None = None
+            cursor: str | None = None,
+            query_source: Literal['typed_query', 'trend_click'] = 'typed_query',
     ) -> Result[Tweet]:
         """
         Searches for tweets based on the specified query and
@@ -785,6 +786,8 @@ class Client:
             The number of tweets to retrieve, between 1 and 20.
         cursor : :class:`str`, default=20
             Token to retrieve more tweets.
+        query_source : {'typed_query', 'trend_click'}, default='typed_query'
+            The source of the query.
 
         Returns
         -------

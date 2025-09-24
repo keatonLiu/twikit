@@ -34,17 +34,15 @@ class ClientTransaction:
             return self.__inited
 
     async def init(self, session, headers):
-        async with self.init_lock:
-            home_page_response = await handle_x_migration(session, headers)
-
-            self.home_page_response = self.validate_response(home_page_response)
-            self.DEFAULT_ROW_INDEX, self.DEFAULT_KEY_BYTES_INDICES = await self.get_indices(
-                self.home_page_response, session, headers)
-            self.key = self.get_key(response=self.home_page_response)
-            self.key_bytes = self.get_key_bytes(key=self.key)
-            self.animation_key = self.get_animation_key(
-                key_bytes=self.key_bytes, response=self.home_page_response)
-            self.__inited = True
+        home_page_response = await handle_x_migration(session, headers)
+        home_page_response = self.validate_response(home_page_response)
+        self.DEFAULT_ROW_INDEX, self.DEFAULT_KEY_BYTES_INDICES = await self.get_indices(
+            home_page_response, session, headers)
+        self.key = self.get_key(response=home_page_response)
+        self.key_bytes = self.get_key_bytes(key=self.key)
+        self.animation_key = self.get_animation_key(
+            key_bytes=self.key_bytes, response=home_page_response)
+        self.home_page_response = home_page_response
 
     async def get_indices(self, home_page_response, session, headers):
         key_byte_indices = []
@@ -88,10 +86,11 @@ class ClientTransaction:
         if not frames:
             frames = self.get_frames(response)
         # return list(list(frames[key[5] % 4].children)[0].children)[1].get("d")[9:].split("C")
-        return [[int(x) for x in re.sub(r"[^\d]+", " ", item).strip().split()] for item in list(list(frames[key_bytes[5] % 4].children)[0].children)[1].get("d")[9:].split("C")]
+        return [[int(x) for x in re.sub(r"[^\d]+", " ", item).strip().split()] for item in
+                list(list(frames[key_bytes[5] % 4].children)[0].children)[1].get("d")[9:].split("C")]
 
     def solve(self, value, min_val, max_val, rounding: bool):
-        result = value * (max_val-min_val) / 255 + min_val
+        result = value * (max_val - min_val) / 255 + min_val
         return math.floor(result) if rounding else round(result, 2)
 
     def animate(self, frames, target_time):
@@ -137,8 +136,9 @@ class ClientTransaction:
         # row_index, frame_time = [key_bytes[2] % 16, key_bytes[2] % 16 * (key_bytes[42] % 16) * (key_bytes[45] % 16)]
 
         row_index = key_bytes[self.DEFAULT_ROW_INDEX] % 16
-        frame_time = reduce(lambda num1, num2: num1*num2,
+        frame_time = reduce(lambda num1, num2: num1 * num2,
                             [key_bytes[index] % 16 for index in self.DEFAULT_KEY_BYTES_INDICES])
+        frame_time = round(frame_time / 10) * 10
         arr = self.get_2d_array(key_bytes, response)
         frame_row = arr[row_index]
 
@@ -146,7 +146,8 @@ class ClientTransaction:
         animation_key = self.animate(frame_row, target_time)
         return animation_key
 
-    def generate_transaction_id(self, method: str, path: str, response=None, key=None, animation_key=None, time_now=None):
+    def generate_transaction_id(self, method: str, path: str, response=None, key=None, animation_key=None,
+                                time_now=None):
         time_now = time_now or math.floor(
             (time.time() * 1000 - 1682924400 * 1000) / 1000)
         time_now_bytes = [(time_now >> (i * 8)) & 0xFF for i in range(4)]
@@ -161,7 +162,7 @@ class ClientTransaction:
         hash_bytes = list(hash_val)
         random_num = random.randint(0, 255)
         bytes_arr = [*key_bytes, *time_now_bytes, *
-                     hash_bytes[:16], self.ADDITIONAL_RANDOM_NUMBER]
+        hash_bytes[:16], self.ADDITIONAL_RANDOM_NUMBER]
         out = bytearray(
             [random_num, *[item ^ random_num for item in bytes_arr]])
         return base64_encode(out).strip("=")

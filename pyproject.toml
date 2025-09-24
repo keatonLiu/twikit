@@ -32,7 +32,7 @@ email = "lxtxiaotong@foxmail.com"
 Homepage = "https://github.com/d60/twikit"
 
 [tool.setuptools]
-packages = ["twikit"]
+packages = { find = {} }    # 自动查找所有子 package
 
 [tool.setuptools.dynamic]
 version = { attr = "twikit.__version__" }

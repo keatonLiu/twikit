@@ -294,7 +294,7 @@ class Client:
 
     @proxy.setter
     def proxy(self, url: str) -> None:
-        self.http._mounts = {URLPattern('all://'): AsyncHTTPTransport(proxy=url)}
+        self.http._mounts = {URLPattern('all://'): AsyncHTTPTransport(proxy=url, verify=False)}
 
     def _get_csrf_token(self) -> str:
         """

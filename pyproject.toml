@@ -1,8 +1,41 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "twikit"
-version = "0.1.0"
-description = "Add your description here"
+dynamic = ["version"]
+description = "Twitter API wrapper for python with no API key required."
+readme = "README.md"
+
+[project.license]
+text = "MIT"
+
 requires-python = ">=3.11"
+
 dependencies = [
-    "pycryptodome>=3.23.0",
+    "httpx[socks]",
+    "filetype",
+    "beautifulsoup4",
+    "pyotp",
+    "lxml",
+    "webvtt-py",
+    "m3u8",
+    "Js2Py-3.13"
 ]
+
+[[project.authors]]
+name = "Keaton Liu"
+email = "lxtxiaotong@foxmail.com"
+
+[project.urls]
+Homepage = "https://github.com/d60/twikit"
+
+[tool.setuptools]
+packages = ["twikit"]
+
+[tool.setuptools.dynamic]
+version = { attr = "twikit.__version__" }
+
+[tool.setuptools.package-data]
+twikit = ["py.typed"]

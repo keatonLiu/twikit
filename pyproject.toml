@@ -29,7 +29,7 @@ name = "Keaton Liu"
 email = "lxtxiaotong@foxmail.com"
 
 [project.urls]
-Homepage = "https://github.com/d60/twikit"
+Homepage = "https://github.com/keatonLiu/twikit#"
 
 [tool.setuptools]
 packages = { find = {} }    # 自动查找所有子 package

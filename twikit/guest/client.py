@@ -177,7 +177,7 @@ class GuestClient:
     @proxy.setter
     def proxy(self, url: str) -> None:
         self.http._mounts = {
-            URLPattern('all://'): AsyncHTTPTransport(proxy=url)
+            URLPattern('all://'): AsyncHTTPTransport(proxy=url, verify=False)
         }
 
     @property

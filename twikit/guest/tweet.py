@@ -108,7 +108,7 @@ class Tweet:
         self.possibly_sensitive: bool = legacy.get('possibly_sensitive')
         self.possibly_sensitive_editable: bool = legacy.get('possibly_sensitive_editable')
         self.quote_count: int = legacy['quote_count']
-        self._media: list = legacy['entities'].get('media')
+        self._media: list = legacy['entities'].get('media', [])
         self.reply_count: int = legacy['reply_count']
         self.favorite_count: int = legacy['favorite_count']
         self.favorited: bool = legacy['favorited']

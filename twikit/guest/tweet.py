@@ -125,6 +125,7 @@ class Tweet:
         self.view_count_state: str = data['views'].get('state') if 'views' in data else None
         self.has_community_notes: bool = data.get('has_birdwatch_notes')
 
+        self.quote = None
         if data.get('quoted_status_result'):
             quoted_tweet = data.pop('quoted_status_result')['result']
             if 'tweet' in quoted_tweet:
@@ -132,8 +133,6 @@ class Tweet:
             if quoted_tweet.get('__typename') != 'TweetTombstone':
                 quoted_user = User(client, quoted_tweet['core']['user_results']['result'])
                 self.quote: Tweet = Tweet(client, quoted_tweet, quoted_user)
-        else:
-            self.quote = None
 
         if legacy.get('retweeted_status_result'):
             retweeted_tweet = legacy.pop('retweeted_status_result')['result']
@@ -176,10 +175,10 @@ class Tweet:
                 }
 
         if (
-            'card' in data and
-            'legacy' in data['card'] and
-            'name' in data['card']['legacy'] and
-            data['card']['legacy']['name'].startswith('poll')
+                'card' in data and
+                'legacy' in data['card'] and
+                'name' in data['card']['legacy'] and
+                data['card']['legacy']['name'].startswith('poll')
         ):
             self._poll_data = data['card']
         else:
@@ -189,9 +188,9 @@ class Tweet:
         self.thumbnail_title = None
         self.has_card = 'card' in data
         if (
-            'card' in data and
-            'legacy' in data['card'] and
-            'binding_values' in data['card']['legacy']
+                'card' in data and
+                'legacy' in data['card'] and
+                'binding_values' in data['card']['legacy']
         ):
             card_data = data['card']['legacy']['binding_values']
 
@@ -205,9 +204,9 @@ class Tweet:
                 self.thumbnail_title = binding_values['title']['string_value']
 
             if (
-                'thumbnail_image_original' in binding_values and
-                'image_value' in binding_values['thumbnail_image_original'] and
-                'url' in binding_values['thumbnail_image_original']['image_value']
+                    'thumbnail_image_original' in binding_values and
+                    'image_value' in binding_values['thumbnail_image_original'] and
+                    'url' in binding_values['thumbnail_image_original']['image_value']
             ):
                 self.thumbnail_url = binding_values['thumbnail_image_original']['image_value']['url']
 

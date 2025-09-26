@@ -311,7 +311,8 @@ class GuestClient:
         if not instructions_:
             return []
         instructions = instructions_[0]
-        items = find_entry_by_type(instructions, 'TimelineAddEntries')['entries']
+        timeline_add_entries = find_entry_by_type(instructions, 'TimelineAddEntries') or {}
+        items = timeline_add_entries.get('entries', [])
         results = []
 
         for item in items:

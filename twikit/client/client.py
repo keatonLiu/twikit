@@ -8,13 +8,14 @@ import multiprocessing
 import os
 import warnings
 from functools import partial
+from http.cookiejar import CookieJar
 from queue import Empty
 from typing import Any, AsyncGenerator, Literal
 from urllib.parse import urlparse
 
 import filetype
 import pyotp
-from httpx import AsyncClient, AsyncHTTPTransport, Response
+from httpx import AsyncClient, AsyncHTTPTransport, Response, CookieConflict
 from httpx._utils import URLPattern
 
 from .gql import GQLClient
@@ -133,7 +134,7 @@ class Client:
         self.xpff = XPFFHeaderGenerator(user_agent=user_agent)
 
     async def init_transaction(self):
-        cookies_backup = self.get_cookies().copy()
+        cookies_backup = self.copy_cookies()
         ct_headers = {
             'Accept-Language': f'{self.language},{self.language.split("-")[0]};q=0.9',
             'Cache-Control': 'no-cache',
@@ -187,7 +188,7 @@ class Client:
         headers = kwargs.pop('headers', {})
 
         if not await self.client_transaction.is_inited():
-            cookies_backup = self.get_cookies().copy()
+            cookies_backup = self.copy_cookies()
             ct_headers = {
                 'Accept-Language': f'{self.language},{self.language.split("-")[0]};q=0.9',
                 'Cache-Control': 'no-cache',
@@ -205,7 +206,7 @@ class Client:
         if guest_id := self.http.cookies.get('guest_id'):
             headers['X-Xp-Forwarded-For'] = self.xpff.gen(guest_id)
 
-        cookies_backup = self.get_cookies().copy()
+        cookies_backup = self.copy_cookies()
         response = await self.http.request(method, url, headers=headers, **kwargs)
         self._remove_duplicate_ct0_cookie()
 
@@ -306,7 +307,16 @@ class Client:
         :class:`str`
             The CSRF token as a string.
         """
-        return self.http.cookies.get('ct0')
+        try:
+            token = self.http.cookies.get("ct0")
+            return token
+        except CookieConflict:
+            self.logger.warning(f"Multiple ct0 cookies found in cookies: {self.http.cookies.jar}")
+            for cookie in self.http.cookies.jar:
+                if cookie.name == 'ct0':
+                    return cookie.value
+        self.logger.error("CSRF token not found in cookies.")
+        return ""
 
     @property
     def _base_headers(self) -> dict[str, str]:
@@ -582,7 +592,7 @@ class Client:
                 ui_metrics=True
             )
 
-        cookies_backup = self.get_cookies().copy()
+        cookies_backup = self.copy_cookies()
         max_unlock_attempts = self.captcha_solver.max_attempts
         attempt = 0
         while attempt < max_unlock_attempts:
@@ -634,6 +644,20 @@ class Client:
         """
         return dict(self.http.cookies)
 
+    def copy_cookies(self) -> CookieJar:
+        """
+        Copy the cookies.
+
+        Returns
+        -------
+        :class:`CookieJar`
+            The copied cookies.
+        """
+        cookie_jar = CookieJar()
+        for cookie in self.http.cookies.jar:
+            cookie_jar.set_cookie(cookie)
+        return cookie_jar
+
     def save_cookies(self, path: str) -> None:
         """
         Save cookies to file in json format.
@@ -670,14 +694,14 @@ class Client:
         with open(path, "w") as f:
             json.dump(cookies_dict, f, ensure_ascii=False, indent=4)
 
-    def set_cookies(self, cookies: dict, clear_cookies: bool = False) -> None:
+    def set_cookies(self, cookies: dict | CookieJar, clear_cookies: bool = False) -> None:
         """
         Sets cookies.
         You can skip the login procedure by loading a saved cookies.
 
         Parameters
         ----------
-        cookies : :class:`dict`
+        cookies : :class:`dict` | :class:`CookieJar`
             The cookies to be set as key value pair.
 
         Examples

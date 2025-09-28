@@ -306,7 +306,7 @@ class Client:
         :class:`str`
             The CSRF token as a string.
         """
-        return self.http.cookies.get('ct0')
+        return self.http.cookies.get('ct0', domain='.x.com')
 
     @property
     def _base_headers(self) -> dict[str, str]:

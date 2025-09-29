@@ -476,7 +476,7 @@ class Client:
                 'response': ui_metrics_response,
                 'link': 'next_link'
             }
-        }, proxy='http://127.0.0.1:8080')
+        })
         await flow.execute_task({
             'subtask_id': 'LoginEnterUserIdentifierSSO',
             'settings_list': {

@@ -205,6 +205,8 @@ class Client:
         headers['X-Client-Transaction-Id'] = tid
         if guest_id := self.http.cookies.get('guest_id'):
             headers['X-Xp-Forwarded-For'] = self.xpff.gen(guest_id)
+        else:
+            self.logger.warning(f"guest_id not found in cookies: {self.http.cookies}")
 
         cookies_backup = self.copy_cookies()
         response = await self.http.execute_request(method, url, headers=headers, **kwargs)

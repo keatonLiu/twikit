@@ -206,7 +206,8 @@ class Client:
 
         cookies_backup = self.copy_cookies()
         response = await self.http.execute_request(method, url, headers=headers, **kwargs)
-        self.logger.info(f"Cookie after request: {self.http.cookies}")
+        self.logger.info(f"Request {method} {url} {kwargs} {response.status_code}")
+
         self._remove_duplicate_ct0_cookie()
 
         try:
@@ -475,7 +476,7 @@ class Client:
                 'response': ui_metrics_response,
                 'link': 'next_link'
             }
-        })
+        }, proxy='http://127.0.0.1:8080')
         await flow.execute_task({
             'subtask_id': 'LoginEnterUserIdentifierSSO',
             'settings_list': {

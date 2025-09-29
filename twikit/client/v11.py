@@ -80,9 +80,10 @@ class V11Client:
 
         headers = {
             'x-guest-token': guest_token,
-            'Authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA'
+            'Authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
+            'Referer': 'https://x.com/',
+            'X-Twitter-Active-User': "yes",
         }
-
         if self.base._get_csrf_token():
             headers["x-csrf-token"] = self.base._get_csrf_token()
             headers["x-twitter-auth-type"] = "OAuth2Session"

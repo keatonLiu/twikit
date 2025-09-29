@@ -126,7 +126,7 @@ class Client:
 
         self._token = TOKEN
         self._user_id = None
-        self._user_agent = user_agent or 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15'
+        self._user_agent = user_agent or 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36'
         self._act_as = None
 
         self.gql = GQLClient(self)
@@ -205,9 +205,12 @@ class Client:
         headers['X-Client-Transaction-Id'] = tid
         if guest_id := self.http.cookies.get('guest_id'):
             headers['X-Xp-Forwarded-For'] = self.xpff.gen(guest_id)
+        else:
+            self.logger.warning(f"guest_id not found in cookies: {self.http.cookies}")
 
         cookies_backup = self.copy_cookies()
         response = await self.http.execute_request(method, url, headers=headers, **kwargs)
+        self.logger.info(f"Cookie after request: {self.http.cookies}")
         self._remove_duplicate_ct0_cookie()
 
         try:

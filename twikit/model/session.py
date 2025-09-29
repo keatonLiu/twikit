@@ -8,6 +8,9 @@ class BaseSession(Session):
         kwargs['client'] = Client.CHROME_133
         kwargs['random_tls_extension_order'] = True
         super().__init__(*args, **kwargs)
+        self.headers.update({
+            'User-Agent': "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36"
+        })
 
     async def request(
             self,

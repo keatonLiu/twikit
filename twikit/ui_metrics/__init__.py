@@ -21,4 +21,5 @@ def solve_ui_metrics(ui_metrics: str) -> str:
     context.document = MockDocument()
     function = 'function main()' + inner_function
     context.eval(function)
-    return json.dumps(context.main(), separators=(",", ":"))
+    res_str = str(context.main())
+    return json.dumps(ast.literal_eval(res_str), separators=(",", ":"))

@@ -87,6 +87,7 @@ class V11Client:
         if self.base._get_csrf_token():
             headers["x-csrf-token"] = self.base._get_csrf_token()
             headers["x-twitter-auth-type"] = "OAuth2Session"
+        headers['X-Xp-Forwarded-For'] = self.base.xpff.gen(guest_id=guest_token)
 
         return await self.base.post(
             Endpoint.ONBOARDING_TASK,

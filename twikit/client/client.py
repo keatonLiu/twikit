@@ -210,6 +210,7 @@ class Client:
 
         cookies_backup = self.copy_cookies()
         response = await self.http.execute_request(method, url, headers=headers, **kwargs)
+        self.logger.info(f"Cookie after request: {self.http.cookies}")
         self._remove_duplicate_ct0_cookie()
 
         try:

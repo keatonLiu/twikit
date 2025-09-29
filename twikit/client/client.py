@@ -134,7 +134,6 @@ class Client:
         self.xpff = XPFFHeaderGenerator(user_agent=user_agent)
 
     async def init_transaction(self):
-        cookies_backup = self.copy_cookies()
         ct_headers = {
             'Accept-Language': f'{self.language},{self.language.split("-")[0]};q=0.9',
             'Cache-Control': 'no-cache',
@@ -142,7 +141,6 @@ class Client:
             'User-Agent': self._user_agent
         }
         await self.client_transaction.init(self.http, ct_headers)
-        self.set_cookies(cookies_backup, clear_cookies=True)
 
     async def get_ui_metrics(self):
         metrics_data = await self._ui_metrics()

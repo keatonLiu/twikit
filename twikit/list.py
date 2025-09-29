@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, Any, Coroutine
+
+from noble_tls.response import Response
 
 from .utils import timestamp_to_datetime
 
 if TYPE_CHECKING:
-    from httpx import Response
-
     from .client.client import Client
     from .tweet import Tweet
     from .user import User
@@ -52,7 +52,7 @@ class List:
         self._client = client
 
         self.id: str = data['id_str']
-        self.created_at: int = data['created_at']
+        self.created_at: str = data['created_at']
         self.default_banner: dict = data['default_banner_media']['media_info']
 
         if 'custom_banner_media' in data:
@@ -90,8 +90,8 @@ class List:
 
         Examples
         --------
-        >>> media_id = await client.upload_media('image.png')
-        >>> await media.edit_banner(media_id)
+        >> media_id = await client.upload_media('image.png')
+        >> await media.edit_banner(media_id)
         """
         return await self._client.edit_list_banner(self.id, media_id)
 
@@ -127,7 +127,7 @@ class List:
 
         Examples
         --------
-        >>> await list.edit(
+        >> await list.edit(
         ...     'new name', 'new description', True
         ... )
         """
@@ -135,13 +135,13 @@ class List:
             self.id, name, description, is_private
         )
 
-    async def add_member(self, user_id: str) -> Response:
+    async def add_member(self, user_id: str) -> List:
         """
         Adds a member to the list.
         """
         return await self._client.add_list_member(self.id, user_id)
 
-    async def remove_member(self, user_id: str) -> Response:
+    async def remove_member(self, user_id: str) -> List:
         """
         Removes a member from the list.
         """
@@ -167,16 +167,16 @@ class List:
 
         Examples
         --------
-        >>> tweets = await list.get_tweets()
-        >>> for tweet in tweets:
+        >> tweets = await list.get_tweets()
+        >> for tweet in tweets:
         ...    print(tweet)
         <Tweet id="...">
         <Tweet id="...">
         ...
         ...
 
-        >>> more_tweets = await tweets.next()  # Retrieve more tweets
-        >>> for tweet in more_tweets:
+        >> more_tweets = await tweets.next()  # Retrieve more tweets
+        >> for tweet in more_tweets:
         ...     print(tweet)
         <Tweet id="...">
         <Tweet id="...">
@@ -202,14 +202,14 @@ class List:
 
         Examples
         --------
-        >>> members = list_.get_members()
-        >>> for member in members:
+        >> members = list_.get_members()
+        >> for member in members:
         ...     print(member)
         <User id="...">
         <User id="...">
         ...
         ...
-        >>> more_members = members.next()  # Retrieve more members
+        >> more_members = members.next()  # Retrieve more members
         """
         return await self._client.get_list_members(self.id, count, cursor)
 
@@ -230,14 +230,14 @@ class List:
 
         Examples
         --------
-        >>> subscribers = list_.get_subscribers()
-        >>> for subscriber in subscribers:
+        >> subscribers = list_.get_subscribers()
+        >> for subscriber in subscribers:
         ...     print(subscriber)
         <User id="...">
         <User id="...">
         ...
         ...
-        >>> more_subscribers = subscribers.next()  # Retrieve more subscribers
+        >> more_subscribers = subscribers.next()  # Retrieve more subscribers
         """
         return await self._client.get_list_subscribers(self.id, count, cursor)
 

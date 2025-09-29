@@ -164,13 +164,13 @@ class Community:
 
         Examples
         --------
-        >>> tweets = await community.get_tweets('Latest')
-        >>> for tweet in tweets:
+        >> tweets = await community.get_tweets('Latest')
+        >> for tweet in tweets:
         ...     print(tweet)
         <Tweet id="...">
         <Tweet id="...">
         ...
-        >>> more_tweets = await tweets.next()  # Retrieve more tweets
+        >> more_tweets = await tweets.next()  # Retrieve more tweets
         """
         return await self._client.get_community_tweets(
             self.id,

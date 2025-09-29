@@ -115,7 +115,7 @@ async def main():
         await client.upload_media('./media3.png', 2)
     ]
 
-    client.create_tweet(TWEET_TEXT, MEDIA_IDS)
+    await client.create_tweet(TWEET_TEXT, MEDIA_IDS)
 
     # Create tweet with a poll
     TWEET_TEXT = 'tweet text'

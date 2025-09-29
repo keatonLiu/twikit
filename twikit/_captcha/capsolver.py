@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from time import sleep
 
-import httpx
+import noble_tls
 
 from .base import CaptchaSolver
+from ..model.session import BaseSession
 
 
 class Capsolver(CaptchaSolver):
@@ -36,42 +37,43 @@ class Capsolver(CaptchaSolver):
     """
 
     def __init__(
-        self,
-        api_key: str,
-        max_attempts: int = 3,
-        get_result_interval: float = 1.0,
-        use_blob_data: bool = False
+            self,
+            api_key: str,
+            max_attempts: int = 3,
+            get_result_interval: float = 1.0,
+            use_blob_data: bool = False
     ) -> None:
         self.api_key = api_key
         self.get_result_interval = get_result_interval
         self.max_attempts = max_attempts
         self.use_blob_data = use_blob_data
+        self.ss = BaseSession()
 
-    def create_task(self, task_data: dict) -> dict:
+    async def create_task(self, task_data: dict) -> dict:
         data = {
             'clientKey': self.api_key,
             'task': task_data
         }
-        response = httpx.post(
+        response = await self.ss.post(
             'https://api.capsolver.com/createTask',
             json=data,
             headers={'content-type': 'application/json'}
-        ).json()
-        return response
+        )
+        return await response.json()
 
-    def get_task_result(self, task_id: str) -> dict:
+    async def get_task_result(self, task_id: str) -> dict:
         data = {
             'clientKey': self.api_key,
             'taskId': task_id
         }
-        response = httpx.post(
+        response = await self.ss.post(
             'https://api.capsolver.com/getTaskResult',
             json=data,
             headers={'content-type': 'application/json'}
-        ).json()
-        return response
+        )
+        return await response.json()
 
-    def solve_funcaptcha(self, blob: str) -> dict:
+    async def solve_funcaptcha(self, blob: str) -> dict:
         if self.client.proxy is None:
             captcha_type = 'FunCaptchaTaskProxyLess'
         else:
@@ -87,9 +89,9 @@ class Capsolver(CaptchaSolver):
         if self.use_blob_data:
             task_data['data'] = '{"blob":"%s"}' % blob
             task_data['userAgent'] = self.client._user_agent
-        task = self.create_task(task_data)
+        task = await self.create_task(task_data)
         while True:
             sleep(self.get_result_interval)
             result = self.get_task_result(task['taskId'])
             if result['status'] in ('ready', 'failed'):
-                return result
+                return await result

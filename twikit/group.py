@@ -7,7 +7,7 @@ from .user import User
 from .utils import build_user_data
 
 if TYPE_CHECKING:
-    from httpx import Response
+    from noble_tls import Response
 
     from .client.client import Client
     from .utils import Result
@@ -59,17 +59,17 @@ class Group:
 
         Examples
         --------
-        >>> messages = await group.get_history()
-        >>> for message in messages:
-        >>>     print(message)
+        >> messages = await group.get_history()
+        >> for message in messages:
+        >>     print(message)
         <GroupMessage id="...">
         <GroupMessage id="...">
         ...
         ...
 
-        >>> more_messages = await messages.next()  # Retrieve more messages
-        >>> for message in more_messages:
-        >>>     print(message)
+        >> more_messages = await messages.next()  # Retrieve more messages
+        >> for message in more_messages:
+        >>     print(message)
         <GroupMessage id="...">
         <GroupMessage id="...">
         ...
@@ -92,8 +92,8 @@ class Group:
 
         Examples
         --------
-        >>> members = ['...']
-        >>> await group.add_members(members)
+        >> members = ['...']
+        >> await group.add_members(members)
         """
         return await self._client.add_members_to_group(self.id, user_ids)
 
@@ -139,11 +139,11 @@ class Group:
 
         Examples
         --------
-        >>> # send DM with media
-        >>> group_id = '000000000'
-        >>> media_id = await client.upload_media('image.png')
-        >>> message = await group.send_message('text', media_id)
-        >>> print(message)
+        >> # send DM with media
+        >> group_id = '000000000'
+        >> media_id = await client.upload_media('image.png')
+        >> message = await group.send_message('text', media_id)
+        >> print(message)
         <GroupMessage id='...'>
         """
         return await self._client.send_dm_to_group(

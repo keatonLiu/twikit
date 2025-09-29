@@ -10,7 +10,7 @@ from .user import User
 from .utils import find_dict, timestamp_to_datetime
 
 if TYPE_CHECKING:
-    from httpx import Response
+    from noble_tls import Response
 
     from .client.client import Client
     from .utils import Result
@@ -299,7 +299,7 @@ class Tweet:
         return timestamp_to_datetime(self.created_at)
 
     @property
-    def poll(self) -> Poll:
+    def poll(self) -> Poll | None:
         if (
             'card' in self._data and
             'legacy' in self._data['card'] and
@@ -309,9 +309,10 @@ class Tweet:
             return Poll(self._client, self._data['card'], self)
 
     @property
-    def place(self) -> Place:
+    def place(self) -> Place | None:
         if self._place_data:
             return Place(self._client, self._place_data)
+        return None
 
     @property
     def media(self) -> list[MEDIA_TYPE]:
@@ -334,7 +335,7 @@ class Tweet:
 
         Examples
         --------
-        >>> await tweet.delete()
+        >> await tweet.delete()
         """
         return await self._client.delete_tweet(self.id)
 
@@ -452,12 +453,12 @@ class Tweet:
 
         Examples
         --------
-        >>> tweet_text = 'Example text'
-        >>> media_ids = [
+        >> tweet_text = 'Example text'
+        >> media_ids = [
         ...     client.upload_media('image1.png'),
         ...     client.upload_media('image2.png')
         ... ]
-        >>> await tweet.reply(
+        >> await tweet.reply(
         ...     tweet_text,
         ...     media_ids=media_ids
         ... )
@@ -490,13 +491,13 @@ class Tweet:
 
         Examples
         --------
-        >>> tweet_id = '...'
-        >>> retweeters = tweet.get_retweeters()
-        >>> print(retweeters)
+        >> tweet_id = '...'
+        >> retweeters = tweet.get_retweeters()
+        >> print(retweeters)
         [<User id="...">, <User id="...">, ..., <User id="...">]
 
-        >>> more_retweeters = retweeters.next()  # Retrieve more retweeters.
-        >>> print(more_retweeters)
+        >> more_retweeters = retweeters.next()  # Retrieve more retweeters.
+        >> print(more_retweeters)
         [<User id="...">, <User id="...">, ..., <User id="...">]
         """
         return await self._client.get_retweeters(self.id, count, cursor)
@@ -523,13 +524,13 @@ class Tweet:
 
         Examples
         --------
-        >>> tweet_id = '...'
-        >>> favoriters = tweet.get_favoriters()
-        >>> print(favoriters)
+        >> tweet_id = '...'
+        >> favoriters = tweet.get_favoriters()
+        >> print(favoriters)
         [<User id="...">, <User id="...">, ..., <User id="...">]
 
-        >>> more_favoriters = favoriters.next()  # Retrieve more favoriters.
-        >>> print(more_favoriters)
+        >> more_favoriters = favoriters.next()  # Retrieve more favoriters.
+        >> print(more_favoriters)
         [<User id="...">, <User id="...">, ..., <User id="...">]
         """
         return await self._client.get_favoriters(self.id, count, cursor)
@@ -560,7 +561,7 @@ class Tweet:
         return not self == __value
 
 
-def tweet_from_data(client: Client, data: dict) -> Tweet:
+def tweet_from_data(client: Client, data: dict) -> Tweet | None:
     ':meta private:'
     tweet_data_ = find_dict(data, 'result', True)
     if not tweet_data_:

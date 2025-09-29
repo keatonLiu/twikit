@@ -687,7 +687,7 @@ class Client:
                 "secure": c.secure,
                 "expires": c.expires,
             }
-            for c in self.http.cookies.jar
+            for c in self.http.cookies
         ]
 
         with open(path, "w") as f:

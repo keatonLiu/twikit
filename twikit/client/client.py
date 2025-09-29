@@ -186,7 +186,6 @@ class Client:
         headers = kwargs.pop('headers', {})
 
         if not await self.client_transaction.is_inited():
-            cookies_backup = self.copy_cookies()
             ct_headers = {
                 'Accept-Language': f'{self.language},{self.language.split("-")[0]};q=0.9',
                 'Cache-Control': 'no-cache',
@@ -194,7 +193,6 @@ class Client:
                 'User-Agent': self._user_agent
             }
             await self.client_transaction.init(self.http, ct_headers)
-            self.set_cookies(cookies_backup, clear_cookies=True)
 
         tid = self.client_transaction.generate_transaction_id(method=method, path=urlparse(url).path)
         if not tid:

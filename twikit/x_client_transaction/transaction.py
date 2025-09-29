@@ -43,6 +43,7 @@ class ClientTransaction:
         self.animation_key = self.get_animation_key(
             key_bytes=self.key_bytes, response=home_page_response)
         self.home_page_response = home_page_response
+        self.__inited = True
 
     async def get_indices(self, home_page_response, session, headers):
         key_byte_indices = []

@@ -206,7 +206,7 @@ class Client:
 
         cookies_backup = self.copy_cookies()
         response = await self.http.execute_request(method, url, headers=headers, **kwargs)
-        self.logger.info(f"Request {method} {url} {response.status_code}")
+        self.logger.info(f"Request {method} {url} {kwargs} {response.status_code}")
 
         self._remove_duplicate_ct0_cookie()
 

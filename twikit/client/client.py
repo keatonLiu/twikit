@@ -309,6 +309,7 @@ class Client:
         """
         try:
             token = self.http.cookies.get("ct0")
+            return token
         except CookieConflict:
             self.logger.warning(f"Multiple ct0 cookies found in cookies: {self.http.cookies.jar}")
             for cookie in self.http.cookies.jar:

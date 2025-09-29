@@ -15,7 +15,7 @@ from urllib.parse import urlparse
 
 import filetype
 import pyotp
-from httpx import AsyncClient, AsyncHTTPTransport, Response
+from httpx import AsyncClient, AsyncHTTPTransport, Response, CookieConflict
 from httpx._utils import URLPattern
 
 from .gql import GQLClient
@@ -307,7 +307,15 @@ class Client:
         :class:`str`
             The CSRF token as a string.
         """
-        return self.http.cookies.get('ct0', domain='.x.com', path='/')
+        try:
+            token = self.http.cookies.get("ct0")
+        except CookieConflict:
+            self.logger.warning(f"Multiple ct0 cookies found in cookies: {self.http.cookies.jar}")
+            for cookie in self.http.cookies.jar:
+                if cookie.name == 'ct0':
+                    return cookie.value
+        self.logger.error("CSRF token not found in cookies.")
+        return ""
 
     @property
     def _base_headers(self) -> dict[str, str]:

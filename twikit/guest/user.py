@@ -137,9 +137,9 @@ class User:
 
         Examples
         --------
-        >>> user = await client.get_user_by_screen_name('example_user')
-        >>> tweets = await user.get_tweets()
-        >>> for tweet in tweets:
+        >> user = await client.get_user_by_screen_name('example_user')
+        >> tweets = await user.get_tweets()
+        >> for tweet in tweets:
         ...    print(tweet)
         <Tweet id="...">
         <Tweet id="...">
@@ -164,16 +164,16 @@ class User:
 
         Examples
         --------
-        >>> result = await user.get_highlights_tweets()
-        >>> for tweet in result:
+        >> result = await user.get_highlights_tweets()
+        >> for tweet in result:
         ...     print(tweet)
         <Tweet id="...">
         <Tweet id="...">
         ...
         ...
 
-        >>> more_results = await result.next()  # Retrieve more highlighted tweets
-        >>> for tweet in more_results:
+        >> more_results = await result.next()  # Retrieve more highlighted tweets
+        >> for tweet in more_results:
         ...     print(tweet)
         <Tweet id="...">
         <Tweet id="...">

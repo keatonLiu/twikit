@@ -15,8 +15,8 @@ from urllib.parse import urlparse
 
 import filetype
 import pyotp
-from httpx import AsyncClient, AsyncHTTPTransport, Response, CookieConflict
-from httpx._utils import URLPattern
+from noble_tls.cookies import CookieConflictError
+from noble_tls.response import Response
 
 from .gql import GQLClient
 from .v11 import V11Client
@@ -46,6 +46,7 @@ from ..geo import Place, _places_from_response
 from ..group import Group, GroupMessage
 from ..list import List
 from ..message import Message
+from ..model.session import BaseSession
 from ..notification import Notification
 from ..streaming import Payload, StreamingSession, _payload_from_data
 from ..trend import Location, PlaceTrend, PlaceTrends, Trend
@@ -59,7 +60,6 @@ from ..utils import (
     build_user_data,
     find_dict,
     find_entry_by_type,
-    httpx_transport_to_url
 )
 from ..x_client_transaction import ClientTransaction
 from ..xpff.xpffGenerator import XPFFHeaderGenerator
@@ -91,9 +91,9 @@ class Client:
 
     Examples
     --------
-    >>> client = Client(language='en-US')
+    >> client = Client(language='en-US')
 
-    >>> await client.login(
+    >> await client.login(
     ...     auth_info_1='example_user',
     ...     auth_info_2='email@example.com',
     ...     password='00000000'
@@ -115,9 +115,9 @@ class Client:
             )
             warnings.warn(message)
 
-        self.http = AsyncClient(proxy=proxy, **kwargs)
-        self.language = language
+        self.http = BaseSession(**kwargs)
         self.proxy = proxy
+        self.language = language
         self.captcha_solver = captcha_solver
         if captcha_solver is not None:
             captcha_solver.client = self
@@ -207,7 +207,7 @@ class Client:
             headers['X-Xp-Forwarded-For'] = self.xpff.gen(guest_id)
 
         cookies_backup = self.copy_cookies()
-        response = await self.http.request(method, url, headers=headers, **kwargs)
+        response = await self.http.execute_request(method, url, headers=headers, **kwargs)
         self._remove_duplicate_ct0_cookie()
 
         try:
@@ -232,7 +232,7 @@ class Client:
                 if auto_unlock:
                     await self.unlock()
                     self.set_cookies(cookies_backup, clear_cookies=True)
-                    response = await self.http.request(method, url, **kwargs)
+                    response = await self.http.execute_request(method, url, **kwargs)
                     self._remove_duplicate_ct0_cookie()
                     try:
                         response_data = response.json()
@@ -277,25 +277,25 @@ class Client:
 
     def _remove_duplicate_ct0_cookie(self) -> None:
         cookies = {}
-        for cookie in self.http.cookies.jar:
+        has_dup = False
+        for cookie in self.http.cookies:
             if 'ct0' in cookies and cookie.name == 'ct0':
+                has_dup = True
                 continue
             cookies[cookie.name] = cookie.value
-        self.http.cookies = list(cookies.items())
+        if has_dup:
+            self.logger.warning(f"Multiple ct0 cookies found in cookies: {self.http.cookies}")
 
     @property
     def proxy(self) -> str:
-        ':meta private:'
-        transport: AsyncHTTPTransport = self.http._mounts.get(URLPattern('all://'))
-        if transport is None:
-            return None
-        if not hasattr(transport._pool, '_proxy_url'):
-            return None
-        return httpx_transport_to_url(transport)
+        return self.http.proxies.get('http')
 
     @proxy.setter
     def proxy(self, url: str) -> None:
-        self.http._mounts = {URLPattern('all://'): AsyncHTTPTransport(proxy=url, verify=False)}
+        self.http.proxies = {
+            "http": url,
+            "https": url,
+        }
 
     def _get_csrf_token(self) -> str:
         """
@@ -310,7 +310,7 @@ class Client:
         try:
             token = self.http.cookies.get("ct0")
             return token
-        except CookieConflict:
+        except CookieConflictError:
             self.logger.warning(f"Multiple ct0 cookies found in cookies: {self.http.cookies.jar}")
             for cookie in self.http.cookies.jar:
                 if cookie.name == 'ct0':
@@ -394,7 +394,7 @@ class Client:
 
         Examples
         --------
-        >>> await client.login(
+        >> await client.login(
         ...     auth_info_1='example_user',
         ...     auth_info_2='email@example.com',
         ...     password='00000000'
@@ -404,7 +404,7 @@ class Client:
 
         if cookies_file and os.path.exists(cookies_file):
             self.load_cookies(cookies_file)
-            return
+            return {}
 
         guest_token = await self._get_guest_token()
 
@@ -521,7 +521,7 @@ class Client:
             await flow.execute_task({
                 'subtask_id': 'LoginAcid',
                 'enter_text': {
-                    'text': input('>>> '),
+                    'text': input('>> '),
                     'link': 'next_link'
                 }
             })
@@ -530,7 +530,7 @@ class Client:
         if flow.task_id == 'LoginTwoFactorAuthChallenge':
             if totp_secret is None:
                 print(find_dict(flow.response, 'secondary_text', find_one=True)[0]['text'])
-                totp_code = input('>>>')
+                totp_code = input('>>')
             else:
                 totp_code = pyotp.TOTP(totp_secret).now()
 
@@ -553,7 +553,7 @@ class Client:
             self.save_cookies(cookies_file)
 
         if not flow.response['subtasks']:
-            return
+            return {}
 
         self._user_id = find_dict(flow.response, 'id_str', find_one=True)[0]
         return flow.response
@@ -601,7 +601,7 @@ class Client:
             if html.authenticity_token is None:
                 response, html = await self.captcha_solver.get_unlock_html()
 
-            result = self.captcha_solver.solve_funcaptcha(html.blob)
+            result = await self.captcha_solver.solve_funcaptcha(html.blob)
             if result['errorId'] == 1:
                 continue
 
@@ -619,8 +619,7 @@ class Client:
                     ui_metrics=True
                 )
             finished = (
-                    response.next_request is not None and
-                    response.next_request.url.path == '/'
+                    response.headers.get('Location') is None
             )
             if finished:
                 return
@@ -634,7 +633,7 @@ class Client:
 
         Examples
         --------
-        >>> client.get_cookies()
+        >> client.get_cookies()
 
         See Also
         --------
@@ -654,7 +653,7 @@ class Client:
             The copied cookies.
         """
         cookie_jar = CookieJar()
-        for cookie in self.http.cookies.jar:
+        for cookie in self.http.cookies:
             cookie_jar.set_cookie(cookie)
         return cookie_jar
 
@@ -671,7 +670,7 @@ class Client:
 
         Examples
         --------
-        >>> client.save_cookies('cookies.json')
+        >> client.save_cookies('cookies.json')
 
         See Also
         --------
@@ -706,7 +705,7 @@ class Client:
 
         Examples
         --------
-        >>> with open('cookies.json', 'r', encoding='utf-8') as f:
+        >> with open('cookies.json', 'r', encoding='utf-8') as f:
         ...     client.set_cookies(json.load(f))
 
         See Also
@@ -731,7 +730,7 @@ class Client:
 
         Examples
         --------
-        >>> client.load_cookies('cookies.json')
+        >> client.load_cookies('cookies.json')
 
         See Also
         --------
@@ -821,28 +820,28 @@ class Client:
 
         Examples
         --------
-        >>> tweets = await client.search_tweet('query', 'Top')
-        >>> for tweet in tweets:
+        >> tweets = await client.search_tweet('query', 'Top')
+        >> for tweet in tweets:
         ...    print(tweet)
         <Tweet id="...">
         <Tweet id="...">
         ...
         ...
 
-        >>> more_tweets = await tweets.next()  # Retrieve more tweets
-        >>> for tweet in more_tweets:
+        >> more_tweets = await tweets.next()  # Retrieve more tweets
+        >> for tweet in more_tweets:
         ...     print(tweet)
         <Tweet id="...">
         <Tweet id="...">
         ...
         ...
 
-        >>> # Retrieve previous tweets
-        >>> previous_tweets = await tweets.previous()
+        >> # Retrieve previous tweets
+        >> previous_tweets = await tweets.previous()
         """
         product = product.capitalize()
 
-        response, _ = await self.gql.search_timeline(query, product, count, cursor, query_source)
+        response, _ = await self.gql.search_timeline(query, product, count, cursor, query_source)  # noqa
         instructions = find_dict(response, 'instructions', find_one=True)
         if not instructions:
             return Result([])
@@ -925,16 +924,16 @@ class Client:
 
         Examples
         --------
-        >>> result = await client.search_user('query')
-        >>> for user in result:
+        >> result = await client.search_user('query')
+        >> for user in result:
         ...     print(user)
         <User id="...">
         <User id="...">
         ...
         ...
 
-        >>> more_results = await result.next()  # Retrieve more search results
-        >>> for user in more_results:
+        >> more_results = await result.next()  # Retrieve more search results
+        >> for user in more_results:
         ...     print(user)
         <User id="...">
         <User id="...">
@@ -954,7 +953,7 @@ class Client:
 
         return Result(
             results,
-            partial(self.search_user, query, count, next_cursor),
+            partial(self.search_user, query, count, next_cursor),  # noqa
             next_cursor
         )
 
@@ -1012,16 +1011,16 @@ class Client:
 
         Examples
         --------
-        >>> result = await client.get_user_highlights_tweets('123456789')
-        >>> for tweet in result:
+        >> result = await client.get_user_highlights_tweets('123456789')
+        >> for tweet in result:
         ...     print(tweet)
         <Tweet id="...">
         <Tweet id="...">
         ...
         ...
 
-        >>> more_results = await result.next()  # Retrieve more highlighted tweets
-        >>> for tweet in more_results:
+        >> more_results = await result.next()  # Retrieve more highlighted tweets
+        >> for tweet in more_results:
         ...     print(tweet)
         <Tweet id="...">
         <Tweet id="...">
@@ -1050,9 +1049,9 @@ class Client:
 
         return Result(
             results,
-            partial(self.get_user_highlights_tweets, user_id, count, next_cursor),
+            partial(self.get_user_highlights_tweets, user_id, count, next_cursor),  # noqa
             next_cursor,
-            partial(self.get_user_highlights_tweets, user_id, count, previous_cursor),
+            partial(self.get_user_highlights_tweets, user_id, count, previous_cursor),  # noqa
             previous_cursor
         )
 
@@ -1096,16 +1095,16 @@ class Client:
         --------
         Videos, images and gifs can be uploaded.
 
-        >>> media_id_1 = await client.upload_media(
+        >> media_id_1 = await client.upload_media(
         ...     'media1.jpg',
         ... )
 
-        >>> media_id_2 = await client.upload_media(
+        >> media_id_2 = await client.upload_media(
         ...     'media2.mp4',
         ...     wait_for_completion=True
         ... )
 
-        >>> media_id_3 = await client.upload_media(
+        >> media_id_3 = await client.upload_media(
         ...     'media3.gif',
         ...     wait_for_completion=True,
         ...     media_category='tweet_gif'  # media_category must be specified
@@ -1232,13 +1231,13 @@ class Client:
 
         Examples
         --------
-        >>> media_id = await client.upload_media('media.jpg')
-        >>> await client.create_media_metadata(
+        >> media_id = await client.upload_media('media.jpg')
+        >> await client.create_media_metadata(
         ...     media_id,
         ...     alt_text='This is a sample media',
         ...     sensitive_warning=['other']
         ... )
-        >>> await client.create_tweet(media_ids=[media_id])
+        >> await client.create_tweet(media_ids=[media_id])
         """
         _, response = await self.v11.create_media_metadata(media_id, alt_text, sensitive_warning)
         return response
@@ -1267,10 +1266,10 @@ class Client:
         --------
         Create a poll with three choices lasting for 60 minutes:
 
-        >>> choices = ['Option A', 'Option B', 'Option C']
-        >>> duration_minutes = 60
-        >>> card_uri = await client.create_poll(choices, duration_minutes)
-        >>> print(card_uri)
+        >> choices = ['Option A', 'Option B', 'Option C']
+        >> duration_minutes = 60
+        >> card_uri = await client.create_poll(choices, duration_minutes)
+        >> print(card_uri)
         'card://0000000000000000000'
         """
         response, _ = await self.v11.create_card(choices, duration_minutes)
@@ -1365,23 +1364,23 @@ class Client:
         --------
         Create a tweet with media:
 
-        >>> tweet_text = 'Example text'
-        >>> media_ids = [
+        >> tweet_text = 'Example text'
+        >> media_ids = [
         ...     await client.upload_media('image1.png'),
         ...     await client.upload_media('image2.png')
         ... ]
-        >>> await client.create_tweet(
+        >> await client.create_tweet(
         ...     tweet_text,
         ...     media_ids=media_ids
         ... )
 
         Create a tweet with a poll:
 
-        >>> tweet_text = 'Example text'
-        >>> poll_choices = ['Option A', 'Option B', 'Option C']
-        >>> duration_minutes = 60
-        >>> poll_uri = await client.create_poll(poll_choices, duration_minutes)
-        >>> await client.create_tweet(
+        >> tweet_text = 'Example text'
+        >> poll_choices = ['Option A', 'Option B', 'Option C']
+        >> duration_minutes = 60
+        >> poll_uri = await client.create_poll(poll_choices, duration_minutes)
+        >> await client.create_tweet(
         ...     tweet_text,
         ...     poll_uri=poll_uri
         ... )
@@ -1447,13 +1446,13 @@ class Client:
         --------
         Create a tweet with media:
 
-        >>> scheduled_time = int(time.time()) + 3600  # One hour from now
-        >>> tweet_text = 'Example text'
-        >>> media_ids = [
+        >> scheduled_time = int(time.time()) + 3600  # One hour from now
+        >> tweet_text = 'Example text'
+        >> media_ids = [
         ...     await client.upload_media('image1.png'),
         ...     await client.upload_media('image2.png')
         ... ]
-        >>> await client.create_scheduled_tweet(
+        >> await client.create_scheduled_tweet(
         ...     scheduled_time
         ...     tweet_text,
         ...     media_ids=media_ids
@@ -1477,8 +1476,8 @@ class Client:
 
         Examples
         --------
-        >>> tweet_id = '0000000000'
-        >>> await delete_tweet(tweet_id)
+        >> tweet_id = '0000000000'
+        >> await delete_tweet(tweet_id)
         """
         _, response = await self.gql.delete_tweet(tweet_id)
         return response
@@ -1500,9 +1499,9 @@ class Client:
 
         Examples
         --------
-        >>> target_screen_name = 'example_user'
-        >>> user = await client.get_user_by_name(target_screen_name)
-        >>> print(user)
+        >> target_screen_name = 'example_user'
+        >> user = await client.get_user_by_name(target_screen_name)
+        >> print(user)
         <User id="...">
         """
         response, _ = await self.gql.user_by_screen_name(screen_name)
@@ -1532,9 +1531,9 @@ class Client:
 
         Examples
         --------
-        >>> target_screen_name = '000000000'
-        >>> user = await client.get_user_by_id(target_screen_name)
-        >>> print(user)
+        >> target_screen_name = '000000000'
+        >> user = await client.get_user_by_id(target_screen_name)
+        >> print(user)
         <User id="000000000">
         """
         response, _ = await self.gql.user_by_rest_id(user_id)
@@ -1681,9 +1680,9 @@ class Client:
 
         Examples
         --------
-        >>> target_tweet_id = '...'
-        >>> tweet = client.get_tweet_by_id(target_tweet_id)
-        >>> print(tweet)
+        >> target_tweet_id = '...'
+        >> tweet = client.get_tweet_by_id(target_tweet_id)
+        >> print(tweet)
         <Tweet id="...">
         """
         response, _ = await self.gql.tweet_detail(tweet_id, cursor)
@@ -1779,9 +1778,9 @@ class Client:
 
         Examples
         --------
-        >>> tweet_ids = ['1111111111', '1111111112', '111111113']
-        >>> tweets = await client.get_tweets_by_ids(tweet_ids)
-        >>> print(tweets)
+        >> tweet_ids = ['1111111111', '1111111112', '111111113']
+        >> tweets = await client.get_tweets_by_ids(tweet_ids)
+        >> print(tweets)
         [<Tweet id="1111111111">, <Tweet id="1111111112">, <Tweet id="111111113">]
         """
         response, _ = await self.gql.tweet_results_by_rest_ids(ids)
@@ -1849,9 +1848,9 @@ class Client:
 
         return Result(
             results,
-            partial(self._get_tweet_engagements, tweet_id, count, next_cursor, f),
+            partial(self._get_tweet_engagements, tweet_id, count, next_cursor, f),  # noqa
             next_cursor,
-            partial(self._get_tweet_engagements, tweet_id, count, previous_cursor, f),
+            partial(self._get_tweet_engagements, tweet_id, count, previous_cursor, f),  # noqa
             previous_cursor
         )
 
@@ -1877,13 +1876,13 @@ class Client:
 
         Examples
         --------
-        >>> tweet_id = '...'
-        >>> retweeters = client.get_retweeters(tweet_id)
-        >>> print(retweeters)
+        >> tweet_id = '...'
+        >> retweeters = client.get_retweeters(tweet_id)
+        >> print(retweeters)
         [<User id="...">, <User id="...">, ..., <User id="...">]
 
-        >>> more_retweeters = retweeters.next()  # Retrieve more retweeters.
-        >>> print(more_retweeters)
+        >> more_retweeters = retweeters.next()  # Retrieve more retweeters.
+        >> print(more_retweeters)
         [<User id="...">, <User id="...">, ..., <User id="...">]
         """
         return await self._get_tweet_engagements(tweet_id, count, cursor, self.gql.retweeters)
@@ -1910,14 +1909,14 @@ class Client:
 
         Examples
         --------
-        >>> tweet_id = '...'
-        >>> favoriters = await client.get_favoriters(tweet_id)
-        >>> print(favoriters)
+        >> tweet_id = '...'
+        >> favoriters = await client.get_favoriters(tweet_id)
+        >> print(favoriters)
         [<User id="...">, <User id="...">, ..., <User id="...">]
 
-        >>> # Retrieve more favoriters.
-        >>> more_favoriters = await favoriters.next()
-        >>> print(more_favoriters)
+        >> # Retrieve more favoriters.
+        >> more_favoriters = await favoriters.next()
+        >> print(more_favoriters)
         [<User id="...">, <User id="...">, ..., <User id="...">]
         """
         return await self._get_tweet_engagements(tweet_id, count, cursor, self.gql.favoriters)
@@ -1943,9 +1942,9 @@ class Client:
 
         Examples
         --------
-        >>> note_id = '...'
-        >>> note = client.get_community_note(note_id)
-        >>> print(note)
+        >> note_id = '...'
+        >> note = client.get_community_note(note_id)
+        >> print(note)
         <CommunityNote id="...">
         """
         response, _ = await self.gql.bird_watch_one_note(note_id)
@@ -1984,32 +1983,32 @@ class Client:
 
         Examples
         --------
-        >>> user_id = '...'
+        >> user_id = '...'
 
         If you only have the screen name, you can get the user id as follows:
 
-        >>> screen_name = 'example_user'
-        >>> user = client.get_user_by_screen_name(screen_name)
-        >>> user_id = user.id
+        >> screen_name = 'example_user'
+        >> user = client.get_user_by_screen_name(screen_name)
+        >> user_id = user.id
 
-        >>> tweets = await client.get_user_tweets(user_id, 'Tweets', count=20)
-        >>> for tweet in tweets:
+        >> tweets = await client.get_user_tweets(user_id, 'Tweets', count=20)
+        >> for tweet in tweets:
         ...    print(tweet)
         <Tweet id="...">
         <Tweet id="...">
         ...
         ...
 
-        >>> more_tweets = await tweets.next()  # Retrieve more tweets
-        >>> for tweet in more_tweets:
+        >> more_tweets = await tweets.next()  # Retrieve more tweets
+        >> for tweet in more_tweets:
         ...     print(tweet)
         <Tweet id="...">
         <Tweet id="...">
         ...
         ...
 
-        >>> # Retrieve previous tweets
-        >>> previous_tweets = await tweets.previous()
+        >> # Retrieve previous tweets
+        >> previous_tweets = await tweets.previous()
 
         See Also
         --------
@@ -2022,7 +2021,7 @@ class Client:
             'Media': self.gql.user_media,
             'Likes': self.gql.user_likes,
         }[tweet_type]
-        response, _ = await f(user_id, count, cursor)
+        response, _ = await f(user_id, count, cursor)  # noqa
 
         instructions_ = find_dict(response, 'instructions', True)
         if not instructions_:
@@ -2066,9 +2065,9 @@ class Client:
 
         return Result(
             results,
-            partial(self.get_user_tweets, user_id, tweet_type, count, next_cursor),
+            partial(self.get_user_tweets, user_id, tweet_type, count, next_cursor),  # noqa
             next_cursor,
-            partial(self.get_user_tweets, user_id, tweet_type, count, previous_cursor),
+            partial(self.get_user_tweets, user_id, tweet_type, count, previous_cursor),  # noqa
             previous_cursor
         )
 
@@ -2098,15 +2097,15 @@ class Client:
 
         Example
         -------
-        >>> tweets = await client.get_timeline()
-        >>> for tweet in tweets:
+        >> tweets = await client.get_timeline()
+        >> for tweet in tweets:
         ...     print(tweet)
         <Tweet id="...">
         <Tweet id="...">
         ...
         ...
-        >>> more_tweets = await tweets.next() # Retrieve more tweets
-        >>> for tweet in more_tweets:
+        >> more_tweets = await tweets.next() # Retrieve more tweets
+        >> for tweet in more_tweets:
         ...     print(tweet)
         <Tweet id="...">
         <Tweet id="...">
@@ -2128,7 +2127,7 @@ class Client:
 
         return Result(
             results,
-            partial(self.get_timeline, count, seen_tweet_ids, next_cursor),
+            partial(self.get_timeline, count, seen_tweet_ids, next_cursor),  # noqa
             next_cursor
         )
 
@@ -2158,15 +2157,15 @@ class Client:
 
         Example
         -------
-        >>> tweets = await client.get_latest_timeline()
-        >>> for tweet in tweets:
+        >> tweets = await client.get_latest_timeline()
+        >> for tweet in tweets:
         ...     print(tweet)
         <Tweet id="...">
         <Tweet id="...">
         ...
         ...
-        >>> more_tweets = await tweets.next() # Retrieve more tweets
-        >>> for tweet in more_tweets:
+        >> more_tweets = await tweets.next() # Retrieve more tweets
+        >> for tweet in more_tweets:
         ...     print(tweet)
         <Tweet id="...">
         <Tweet id="...">
@@ -2188,7 +2187,7 @@ class Client:
 
         return Result(
             results,
-            partial(self.get_latest_timeline, count, seen_tweet_ids, next_cursor),
+            partial(self.get_latest_timeline, count, seen_tweet_ids, next_cursor),  # noqa
             next_cursor
         )
 
@@ -2208,8 +2207,8 @@ class Client:
 
         Examples
         --------
-        >>> tweet_id = '...'
-        >>> await client.favorite_tweet(tweet_id)
+        >> tweet_id = '...'
+        >> await client.favorite_tweet(tweet_id)
 
         See Also
         --------
@@ -2234,8 +2233,8 @@ class Client:
 
         Examples
         --------
-        >>> tweet_id = '...'
-        >>> await client.unfavorite_tweet(tweet_id)
+        >> tweet_id = '...'
+        >> await client.unfavorite_tweet(tweet_id)
 
         See Also
         --------
@@ -2260,8 +2259,8 @@ class Client:
 
         Examples
         --------
-        >>> tweet_id = '...'
-        >>> await client.retweet(tweet_id)
+        >> tweet_id = '...'
+        >> await client.retweet(tweet_id)
 
         See Also
         --------
@@ -2286,8 +2285,8 @@ class Client:
 
         Examples
         --------
-        >>> tweet_id = '...'
-        >>> await client.delete_retweet(tweet_id)
+        >> tweet_id = '...'
+        >> await client.delete_retweet(tweet_id)
 
         See Also
         --------
@@ -2316,8 +2315,8 @@ class Client:
 
         Examples
         --------
-        >>> tweet_id = '...'
-        >>> await client.bookmark_tweet(tweet_id)
+        >> tweet_id = '...'
+        >> await client.bookmark_tweet(tweet_id)
         """
         if folder_id is None:
             _, response = await self.gql.create_bookmark(tweet_id)
@@ -2341,8 +2340,8 @@ class Client:
 
         Examples
         --------
-        >>> tweet_id = '...'
-        >>> await client.delete_bookmark(tweet_id)
+        >> tweet_id = '...'
+        >> await client.delete_bookmark(tweet_id)
 
         See Also
         --------
@@ -2373,15 +2372,15 @@ class Client:
 
         Example
         -------
-        >>> bookmarks = await client.get_bookmarks()
-        >>> for bookmark in bookmarks:
+        >> bookmarks = await client.get_bookmarks()
+        >> for bookmark in bookmarks:
         ...     print(bookmark)
         <Tweet id="...">
         <Tweet id="...">
 
-        >>> # # To retrieve more bookmarks
-        >>> more_bookmarks = await bookmarks.next()
-        >>> for bookmark in more_bookmarks:
+        >> # # To retrieve more bookmarks
+        >> more_bookmarks = await bookmarks.next()
+        >> for bookmark in more_bookmarks:
         ...     print(bookmark)
         <Tweet id="...">
         <Tweet id="...">
@@ -2412,7 +2411,7 @@ class Client:
 
         return Result(
             results,
-            partial(self.get_bookmarks, count, next_cursor, folder_id),
+            partial(self.get_bookmarks, count, next_cursor, folder_id),  # noqa
             next_cursor,
             fetch_previous_result,
             previous_cursor
@@ -2429,7 +2428,7 @@ class Client:
 
         Examples
         --------
-        >>> await client.delete_all_bookmarks()
+        >> await client.delete_all_bookmarks()
         """
         _, response = await self.gql.delete_all_bookmarks()
         return response
@@ -2445,10 +2444,10 @@ class Client:
 
         Examples
         --------
-        >>> folders = await client.get_bookmark_folders()
-        >>> print(folders)
+        >> folders = await client.get_bookmark_folders()
+        >> print(folders)
         [<BookmarkFolder id="...">, ..., <BookmarkFolder id="...">]
-        >>> more_folders = await folders.next()  # Retrieve more folders
+        >> more_folders = await folders.next()  # Retrieve more folders
         """
         response, _ = await self.gql.bookmark_folders_slice(cursor)
 
@@ -2490,7 +2489,7 @@ class Client:
 
         Examples
         --------
-        >>> await client.edit_bookmark_folder('123456789', 'MyFolder')
+        >> await client.edit_bookmark_folder('123456789', 'MyFolder')
         """
         response, _ = await self.gql.edit_bookmark_folder(folder_id, name)
         return BookmarkFolder(self, response['data']['bookmark_collection_update'])
@@ -2544,8 +2543,8 @@ class Client:
 
         Examples
         --------
-        >>> user_id = '...'
-        >>> await client.follow_user(user_id)
+        >> user_id = '...'
+        >> await client.follow_user(user_id)
 
         See Also
         --------
@@ -2570,8 +2569,8 @@ class Client:
 
         Examples
         --------
-        >>> user_id = '...'
-        >>> await client.unfollow_user(user_id)
+        >> user_id = '...'
+        >> await client.unfollow_user(user_id)
 
         See Also
         --------
@@ -2700,8 +2699,8 @@ class Client:
 
         Examples
         --------
-        >>> trends = await client.get_trends('trending')
-        >>> for trend in trends:
+        >> trends = await client.get_trends('trending')
+        >> for trend in trends:
         ...     print(trend)
         <Trend name="...">
         <Trend name="...">
@@ -2793,7 +2792,7 @@ class Client:
 
         return Result(
             results,
-            partial(self._get_user_friendship, user_id, count, f, next_cursor),
+            partial(self._get_user_friendship, user_id, count, f, next_cursor),  # noqa
             next_cursor
         )
 
@@ -2812,9 +2811,9 @@ class Client:
 
         return Result(
             results,
-            partial(self._get_user_friendship_2, user_id, screen_name, count, f, next_cursor),
+            partial(self._get_user_friendship_2, user_id, screen_name, count, f, next_cursor),  # noqa
             next_cursor,
-            partial(self._get_user_friendship_2, user_id, screen_name, count, f, previous_cursor),
+            partial(self._get_user_friendship_2, user_id, screen_name, count, f, previous_cursor),  # noqa
             previous_cursor
         )
 
@@ -2830,7 +2829,8 @@ class Client:
             The ID of the user for whom to retrieve followers.
         count : int, default=20
             The number of followers to retrieve.
-
+        cursor : :class:`str`, optional
+            The cursor for pagination.
         Returns
         -------
         Result[:class:`User`]
@@ -2876,6 +2876,8 @@ class Client:
             The ID of the user for whom to retrieve verified followers.
         count : :class:`int`, default=20
             The number of verified followers to retrieve.
+        cursor : :class:`str`, optional
+            The cursor for pagination.
 
         Returns
         -------
@@ -2898,6 +2900,8 @@ class Client:
             The ID of the user for whom to retrieve followers you might know.
         count : :class:`int`, default=20
             The number of followers you might know to retrieve.
+        cursor : :class:`str`, optional
+            The cursor for pagination.
 
         Returns
         -------
@@ -2920,6 +2924,8 @@ class Client:
             The ID of the user for whom to retrieve the following users.
         count : :class:`int`, default=20
             The number of following users to retrieve.
+        cursor : :class:`str`, optional
+            The cursor for pagination.
 
         Returns
         -------
@@ -2942,6 +2948,8 @@ class Client:
             The ID of the user for whom to retrieve subscriptions.
         count : :class:`int`, default=20
             The number of subscriptions to retrieve.
+        cursor : :class:`str`, optional
+            The cursor for pagination.
 
         Returns
         -------
@@ -2966,9 +2974,9 @@ class Client:
 
         return Result(
             response['ids'],
-            partial(self._get_friendship_ids, user_id, screen_name, count, f, next_cursor),
+            partial(self._get_friendship_ids, user_id, screen_name, count, f, next_cursor),  # noqa
             next_cursor,
-            partial(self._get_friendship_ids, user_id, screen_name, count, f, previous_cursor),
+            partial(self._get_friendship_ids, user_id, screen_name, count, f, previous_cursor),  # noqa
             previous_cursor
         )
 
@@ -3080,11 +3088,11 @@ class Client:
 
         Examples
         --------
-        >>> # send DM with media
-        >>> user_id = '000000000'
-        >>> media_id = await client.upload_media('image.png')
-        >>> message = await client.send_dm(user_id, 'text', media_id)
-        >>> print(message)
+        >> # send DM with media
+        >> user_id = '000000000'
+        >> media_id = await client.upload_media('image.png')
+        >> message = await client.send_dm(user_id, 'text', media_id)
+        >> print(message)
         <Message id='...'>
 
         See Also
@@ -3128,9 +3136,9 @@ class Client:
 
         Examples
         --------
-        >>> message_id = '00000000'
-        >>> conversation_id = f'00000001-{await client.user_id()}'
-        >>> await client.add_reaction_to_message(
+        >> message_id = '00000000'
+        >> conversation_id = f'00000001-{await client.user_id()}'
+        >> await client.add_reaction_to_message(
         ...    message_id, conversation_id, 'Emoji here'
         ... )
         """
@@ -3162,9 +3170,9 @@ class Client:
 
         Examples
         --------
-        >>> message_id = '00000000'
-        >>> conversation_id = f'00000001-{await client.user_id()}'
-        >>> await client.remove_reaction_from_message(
+        >> message_id = '00000000'
+        >> conversation_id = f'00000001-{await client.user_id()}'
+        >> await client.remove_reaction_from_message(
         ...    message_id, conversation_id, 'Emoji here'
         ... )
         """
@@ -3189,7 +3197,7 @@ class Client:
 
         Examples
         --------
-        >>> await client.delete_dm('0000000000')
+        >> await client.delete_dm('0000000000')
         """
         _, response = await self.gql.dm_message_delete_mutation(message_id)
         return response
@@ -3218,17 +3226,17 @@ class Client:
 
         Examples
         --------
-        >>> messages = await client.get_dm_history('0000000000')
-        >>> for message in messages:
-        >>>     print(message)
+        >> messages = await client.get_dm_history('0000000000')
+        >> for message in messages:
+        >>     print(message)
         <Message id="...">
         <Message id="...">
         ...
         ...
 
-        >>> more_messages = await messages.next()  # Retrieve more messages
-        >>> for message in more_messages:
-        >>>     print(message)
+        >> more_messages = await messages.next()  # Retrieve more messages
+        >> for message in more_messages:
+        >>     print(message)
         <Message id="...">
         <Message id="...">
         ...
@@ -3254,7 +3262,7 @@ class Client:
 
         return Result(
             messages,
-            partial(self.get_dm_history, user_id, messages[-1].id),
+            partial(self.get_dm_history, user_id, messages[-1].id),  # noqa
             messages[-1].id
         )
 
@@ -3289,11 +3297,11 @@ class Client:
 
         Examples
         --------
-        >>> # send DM with media
-        >>> group_id = '000000000'
-        >>> media_id = await client.upload_media('image.png')
-        >>> message = await client.send_dm_to_group(group_id, 'text', media_id)
-        >>> print(message)
+        >> # send DM with media
+        >> group_id = '000000000'
+        >> media_id = await client.upload_media('image.png')
+        >> message = await client.send_dm_to_group(group_id, 'text', media_id)
+        >> print(message)
         <GroupMessage id='...'>
 
         See Also
@@ -3336,17 +3344,17 @@ class Client:
 
         Examples
         --------
-        >>> messages = await client.get_group_dm_history('0000000000')
-        >>> for message in messages:
-        >>>     print(message)
+        >> messages = await client.get_group_dm_history('0000000000')
+        >> for message in messages:
+        >>     print(message)
         <GroupMessage id="...">
         <GroupMessage id="...">
         ...
         ...
 
-        >>> more_messages = await messages.next()  # Retrieve more messages
-        >>> for message in more_messages:
-        >>>     print(message)
+        >> more_messages = await messages.next()  # Retrieve more messages
+        >> for message in more_messages:
+        >>     print(message)
         <GroupMessage id="...">
         <GroupMessage id="...">
         ...
@@ -3371,7 +3379,7 @@ class Client:
 
         return Result(
             messages,
-            partial(self.get_group_dm_history, group_id, messages[-1].id),
+            partial(self.get_group_dm_history, group_id, messages[-1].id),  # noqa
             messages[-1].id
         )
 
@@ -3411,9 +3419,9 @@ class Client:
 
         Examples
         --------
-        >>> group_id = '...'
-        >>> members = ['...']
-        >>> await client.add_members_to_group(group_id, members)
+        >> group_id = '...'
+        >> members = ['...']
+        >> await client.add_members_to_group(group_id, members)
         """
         _, response = await self.gql.add_participants_mutation(group_id, user_ids)
         return response
@@ -3458,12 +3466,12 @@ class Client:
 
         Examples
         --------
-        >>> list = await client.create_list(
+        >> list = await client.create_list(
         ...     'list name',
         ...     'list description',
         ...     is_private=True
         ... )
-        >>> print(list)
+        >> print(list)
         <List id="...">
         """
         response, _ = await self.gql.create_list(name, description, is_private)
@@ -3488,9 +3496,9 @@ class Client:
 
         Examples
         --------
-        >>> list_id = '...'
-        >>> media_id = await client.upload_media('image.png')
-        >>> await client.edit_list_banner(list_id, media_id)
+        >> list_id = '...'
+        >> media_id = await client.upload_media('image.png')
+        >> await client.edit_list_banner(list_id, media_id)
         """
         _, response = await self.gql.edit_list_banner(list_id, media_id)
         return response
@@ -3540,7 +3548,7 @@ class Client:
 
         Examples
         --------
-        >>> await client.edit_list(
+        >> await client.edit_list(
         ...     'new name', 'new description', True
         ... )
         """
@@ -3566,7 +3574,7 @@ class Client:
 
         Examples
         --------
-        >>> await client.add_list_member('list id', 'user id')
+        >> await client.add_list_member('list id', 'user id')
         """
         response, _ = await self.gql.list_add_member(list_id, user_id)
         return List(self, response['data']['list'])
@@ -3589,7 +3597,7 @@ class Client:
 
         Examples
         --------
-        >>> await client.remove_list_member('list id', 'user id')
+        >> await client.remove_list_member('list id', 'user id')
         """
         response, _ = await self.gql.list_remove_member(list_id, user_id)
         if 'errors' in response:
@@ -3614,14 +3622,14 @@ class Client:
 
         Examples
         --------
-        >>> lists = client.get_lists()
-        >>> for list_ in lists:
+        >> lists = client.get_lists()
+        >> for list_ in lists:
         ...     print(list_)
         <List id="...">
         <List id="...">
         ...
         ...
-        >>> more_lists = lists.next()  # Retrieve more lists
+        >> more_lists = lists.next()  # Retrieve more lists
         """
         response, _ = await self.gql.list_management_pace_timeline(count, cursor)
 
@@ -3639,7 +3647,7 @@ class Client:
 
         return Result(
             lists,
-            partial(self.get_lists, count, next_cursor),
+            partial(self.get_lists, count, next_cursor),  # noqa
             next_cursor
         )
 
@@ -3685,16 +3693,16 @@ class Client:
 
         Examples
         --------
-        >>> tweets = await client.get_list_tweets('list id')
-        >>> for tweet in tweets:
+        >> tweets = await client.get_list_tweets('list id')
+        >> for tweet in tweets:
         ...    print(tweet)
         <Tweet id="...">
         <Tweet id="...">
         ...
         ...
 
-        >>> more_tweets = await tweets.next()  # Retrieve more tweets
-        >>> for tweet in more_tweets:
+        >> more_tweets = await tweets.next()  # Retrieve more tweets
+        >> for tweet in more_tweets:
         ...     print(tweet)
         <Tweet id="...">
         <Tweet id="...">
@@ -3720,11 +3728,11 @@ class Client:
 
         return Result(
             results,
-            partial(self.get_list_tweets, list_id, count, next_cursor),
+            partial(self.get_list_tweets, list_id, count, next_cursor),  # noqa
             next_cursor
         )
 
-    async def _get_list_users(self, f: str, list_id: str, count: int, cursor: str) -> Result[User]:
+    async def _get_list_users(self, f, list_id: str, count: int, cursor: str) -> Result[User]:
         """
         Base function to retrieve the users associated with a list.
         """
@@ -3743,7 +3751,7 @@ class Client:
 
         return Result(
             results,
-            partial(self._get_list_users, f, list_id, count, next_cursor),
+            partial(self._get_list_users, f, list_id, count, next_cursor),  # noqa
             next_cursor
         )
 
@@ -3766,14 +3774,14 @@ class Client:
 
         Examples
         --------
-        >>> members = client.get_list_members(123456789)
-        >>> for member in members:
+        >> members = client.get_list_members(123456789)
+        >> for member in members:
         ...     print(member)
         <User id="...">
         <User id="...">
         ...
         ...
-        >>> more_members = members.next()  # Retrieve more members
+        >> more_members = members.next()  # Retrieve more members
         """
         return await self._get_list_users(self.gql.list_members, list_id, count, cursor)
 
@@ -3788,6 +3796,8 @@ class Client:
             List ID.
         count : :class:`int`, default=20
             Number of subscribers to retrieve.
+        cursor : :class:`str`, default=None
+            Cursor for pagination.
 
         Returns
         -------
@@ -3796,14 +3806,14 @@ class Client:
 
         Examples
         --------
-        >>> members = client.get_list_subscribers(123456789)
-        >>> for subscriber in subscribers:
+        >> members = client.get_list_subscribers(123456789)
+        >> for subscriber in subscribers:
         ...     print(subscriber)
         <User id="...">
         <User id="...">
         ...
         ...
-        >>> more_subscribers = members.next()  # Retrieve more subscribers
+        >> more_subscribers = members.next()  # Retrieve more subscribers
         """
         return await self._get_list_users(self.gql.list_subscribers, list_id, count, cursor)
 
@@ -3819,6 +3829,8 @@ class Client:
             The search query.
         count : :class:`int`, default=20
             The number of lists to retrieve.
+        cursor : :class:`str`, default=None
+            Cursor for pagination.
 
         Returns
         -------
@@ -3828,14 +3840,14 @@ class Client:
 
         Examples
         --------
-        >>> lists = await client.search_list('query')
-        >>> for list in lists:
+        >> lists = await client.search_list('query')
+        >> for list in lists:
         ...     print(list)
         <List id="...">
         <List id="...">
         ...
 
-        >>> more_lists = await lists.next()  # Retrieve more lists
+        >> more_lists = await lists.next()  # Retrieve more lists
         """
         response, _ = await self.gql.search_timeline(query, 'Lists', count, cursor)
         entries = find_dict(response, 'entries', find_one=True)[0]
@@ -3852,7 +3864,7 @@ class Client:
 
         return Result(
             lists,
-            partial(self.search_list, query, count, next_cursor),
+            partial(self.search_list, query, count, next_cursor),  # noqa
             next_cursor
         )
 
@@ -3874,6 +3886,8 @@ class Client:
             Mentions: Notifications with mentions
         count : :class:`int`, default=40
             Number of notifications to retrieve.
+        cursor : :class:`str`, default=None
+            Cursor for pagination.
 
         Returns
         -------
@@ -3882,16 +3896,16 @@ class Client:
 
         Examples
         --------
-        >>> notifications = await client.get_notifications('All')
-        >>> for notification in notifications:
+        >> notifications = await client.get_notifications('All')
+        >> for notification in notifications:
         ...     print(notification)
         <Notification id="...">
         <Notification id="...">
         ...
         ...
 
-        >>> # Retrieve more notifications
-        >>> more_notifications = await notifications.next()
+        >> # Retrieve more notifications
+        >> more_notifications = await notifications.next()
         """
         type = type.capitalize()
         f = {
@@ -3899,7 +3913,7 @@ class Client:
             'Verified': self.v11.notifications_verified,
             'Mentions': self.v11.notifications_mentions
         }[type]
-        response, _ = await f(count, cursor)
+        response, _ = await f(count, cursor)  # noqa
 
         global_objects = response['globalObjects']
         users = {
@@ -3946,7 +3960,7 @@ class Client:
 
         return Result(
             notifications,
-            partial(self.get_notifications, type, count, next_cursor),
+            partial(self.get_notifications, type, count, next_cursor),  # noqa
             next_cursor
         )
 
@@ -3968,15 +3982,15 @@ class Client:
 
         Examples
         --------
-        >>> communities = await client.search_communities('query')
-        >>> for community in communities:
+        >> communities = await client.search_communities('query')
+        >> for community in communities:
         ...     print(community)
         <Community id="...">
         <Community id="...">
         ...
 
-        >>> # Retrieve more communities
-        >>> more_communities = await communities.next()
+        >> # Retrieve more communities
+        >> more_communities = await communities.next()
         """
         response, _ = await self.gql.search_community(query, cursor)
 
@@ -4002,7 +4016,7 @@ class Client:
 
         Parameters
         ----------
-        list_id : :class:`str`
+        community_id : :class:`str`
             The ID of the community to retrieve.
 
         Returns
@@ -4032,6 +4046,8 @@ class Client:
             The type of tweets to retrieve.
         count : :class:`int`, default=40
             The number of tweets to retrieve.
+        cursor : :class:`str`, default=None
+            The cursor for pagination.
 
         Returns
         -------
@@ -4040,14 +4056,14 @@ class Client:
 
         Examples
         --------
-        >>> community_id = '...'
-        >>> tweets = await client.get_community_tweets(community_id, 'Latest')
-        >>> for tweet in tweets:
+        >> community_id = '...'
+        >> tweets = await client.get_community_tweets(community_id, 'Latest')
+        >> for tweet in tweets:
         ...     print(tweet)
         <Tweet id="...">
         <Tweet id="...">
         ...
-        >>> more_tweets = await tweets.next()  # Retrieve more tweets
+        >> more_tweets = await tweets.next()  # Retrieve more tweets
         """
         if tweet_type == 'Media':
             response, _ = await self.gql.community_media_timeline(community_id, count, cursor)
@@ -4084,9 +4100,9 @@ class Client:
 
         return Result(
             tweets,
-            partial(self.get_community_tweets, community_id, tweet_type, count, next_cursor),
+            partial(self.get_community_tweets, community_id, tweet_type, count, next_cursor),  # noqa
             next_cursor,
-            partial(self.get_community_tweets, community_id, tweet_type, count, previous_cursor),
+            partial(self.get_community_tweets, community_id, tweet_type, count, previous_cursor),  # noqa
             previous_cursor
         )
 
@@ -4108,13 +4124,13 @@ class Client:
 
         Examples
         --------
-        >>> tweets = await client.get_communities_timeline()
-        >>> for tweet in tweets:
+        >> tweets = await client.get_communities_timeline()
+        >> for tweet in tweets:
         ...     print(tweet)
         <Tweet id="...">
         <Tweet id="...">
         ...
-        >>> more_tweets = await tweets.next()  # Retrieve more tweets
+        >> more_tweets = await tweets.next()  # Retrieve more tweets
         """
         response, _ = await self.gql.communities_main_page_timeline(count, cursor)
         items = find_dict(response, 'entries', find_one=True)[0]
@@ -4138,9 +4154,9 @@ class Client:
 
         return Result(
             tweets,
-            partial(self.get_communities_timeline, count, next_cursor),
+            partial(self.get_communities_timeline, count, next_cursor),  # noqa
             next_cursor,
-            partial(self.get_communities_timeline, count, previous_cursor),
+            partial(self.get_communities_timeline, count, previous_cursor),  # noqa
             previous_cursor
         )
 
@@ -4317,27 +4333,28 @@ class Client:
 
         return Result(
             tweets,
-            partial(self.search_community_tweet, community_id, query, count, next_cursor),
+            partial(self.search_community_tweet, community_id, query, count, next_cursor),  # noqa
             next_cursor,
-            partial(self.search_community_tweet, community_id, query, count, previous_cursor),
+            partial(self.search_community_tweet, community_id, query, count, previous_cursor),  # noqa
             previous_cursor,
         )
 
     async def _stream(self, topics: set[str]) -> AsyncGenerator[tuple[str, Payload]]:
-        url = f'https://api.{DOMAIN}/live_pipeline/events'
-        params = {'topics': ','.join(topics)}
-        headers = self._base_headers
-        headers.pop('content-type')
-
-        async with self.http.stream('GET', url, params=params, headers=headers, timeout=None) as response:
-            self._remove_duplicate_ct0_cookie()
-            async for line in response.aiter_lines():
-                try:
-                    data = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                payload = _payload_from_data(data['payload'])
-                yield data.get('topic'), payload
+        # url = f'https://api.{DOMAIN}/live_pipeline/events'
+        # params = {'topics': ','.join(topics)}
+        # headers = self._base_headers
+        # headers.pop('content-type')
+        #
+        # async with self.http.stream('GET', url, params=params, headers=headers, timeout=None) as response:
+        #     self._remove_duplicate_ct0_cookie()
+        #     async for line in response.aiter_lines():
+        #         try:
+        #             data = json.loads(line)
+        #         except json.JSONDecodeError:
+        #             continue
+        #         payload = _payload_from_data(data['payload'])
+        #         yield data.get('topic'), payload
+        raise NotImplementedError
 
     async def get_streaming_session(
             self, topics: set[str], auto_reconnect: bool = True
@@ -4360,27 +4377,27 @@ class Client:
 
         Examples
         --------
-        >>> from twikit.streaming import Topic
-        >>>
-        >>> topics = {
+        >> from twikit.streaming import Topic
+        >>
+        >> topics = {
         ...     Topic.tweet_engagement('1739617652'), # Stream tweet engagement
         ...     Topic.dm_update('17544932482-174455537996'), # Stream DM update
         ...     Topic.dm_typing('17544932482-174455537996') # Stream DM typing
         ... }
-        >>> session = await client.get_streaming_session(topics)
-        >>>
-        >>> async for topic, payload in session:
+        >> session = await client.get_streaming_session(topics)
+        >>
+        >> async for topic, payload in session:
         ...     if payload.dm_update:
         ...         conversation_id = payload.dm_update.conversation_id
         ...         user_id = payload.dm_update.user_id
         ...         print(f'{conversation_id}: {user_id} sent a message')
-        >>>
-        >>>     if payload.dm_typing:
+        >>
+        >>     if payload.dm_typing:
         ...         conversation_id = payload.dm_typing.conversation_id
         ...         user_id = payload.dm_typing.user_id
         ...         print(f'{conversation_id}: {user_id} is typing')
-        >>>
-        >>>     if payload.tweet_engagement:
+        >>
+        >>     if payload.tweet_engagement:
         ...         like = payload.tweet_engagement.like_count
         ...         retweet = payload.tweet_engagement.retweet_count
         ...         view = payload.tweet_engagement.view_count
@@ -4390,16 +4407,16 @@ class Client:
         Topics to stream can be added or deleted using
         :attr:`.StreamingSession.update_subscriptions` method.
 
-        >>> subscribe_topics = {
+        >> subscribe_topics = {
         ...     Topic.tweet_engagement('1749528513'),
         ...     Topic.tweet_engagement('1765829534')
         ... }
-        >>> unsubscribe_topics = {
+        >> unsubscribe_topics = {
         ...     Topic.tweet_engagement('1739617652'),
         ...     Topic.dm_update('17544932482-174455537996'),
         ...     Topic.dm_update('17544932482-174455537996')
         ... }
-        >>> await session.update_subscriptions(
+        >> await session.update_subscriptions(
         ...     subscribe_topics, unsubscribe_topics
         ... )
 
@@ -4410,9 +4427,10 @@ class Client:
         .Payload
         .Topic
         """
-        stream = self._stream(topics)
-        session_id = (await anext(stream))[1].config.session_id
-        return StreamingSession(self, session_id, stream, topics, auto_reconnect)
+        # stream = self._stream(topics)
+        # session_id = (await anext(stream))[1].config.session_id
+        # return StreamingSession(self, session_id, stream, topics, auto_reconnect)
+        raise NotImplementedError
 
     async def _update_subscriptions(
             self,

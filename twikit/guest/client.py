@@ -6,9 +6,10 @@ from functools import partial
 from typing import Any, Literal
 from urllib.parse import urlparse
 
-from httpx import AsyncClient, AsyncHTTPTransport, Response
-from httpx._utils import URLPattern
+from noble_tls.response import Response
 
+from .tweet import Tweet
+from .user import User
 from ..client.gql import GQLClient
 from ..client.v11 import V11Client
 from ..constants import DOMAIN, TOKEN
@@ -22,14 +23,13 @@ from ..errors import (
     TwitterException,
     Unauthorized
 )
-from ..utils import Result, find_dict, find_entry_by_type, httpx_transport_to_url
+from ..model.session import BaseSession
+from ..utils import Result, find_dict, find_entry_by_type
 from ..x_client_transaction import ClientTransaction
-from .tweet import Tweet
-from .user import User
 from ..xpff.xpffGenerator import XPFFHeaderGenerator
 
 
-def tweet_from_data(client: GuestClient, data: dict) -> Tweet:
+def tweet_from_data(client: GuestClient, data: dict) -> Tweet | None:
     ':meta private:'
     tweet_data_ = find_dict(data, 'result', True)
     if not tweet_data_:
@@ -67,15 +67,15 @@ class GuestClient:
 
     Examples
     --------
-    >>> client = GuestClient()
-    >>> await client.activate()  # Activate the client by generating a guest token.
+    >> client = GuestClient()
+    >> await client.activate()  # Activate the client by generating a guest token.
     """
 
     def __init__(
-        self,
-        language: str = 'en-US',
-        proxy: str | None = None,
-        **kwargs
+            self,
+            language: str = 'en-US',
+            proxy: str | None = None,
+            **kwargs
     ) -> None:
         if 'proxies' in kwargs:
             message = (
@@ -84,9 +84,9 @@ class GuestClient:
             )
             warnings.warn(message)
 
-        self.http = AsyncClient(proxy=proxy, **kwargs)
+        self.http = BaseSession(**kwargs)
         self.language = language
-        self.proxy = proxy
+        self.proxy = proxy or {}
 
         self._token = TOKEN
         self._user_agent = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
@@ -99,11 +99,11 @@ class GuestClient:
         self.xpff = XPFFHeaderGenerator(user_agent=self._user_agent)
 
     async def request(
-        self,
-        method: str,
-        url: str,
-        raise_exception: bool = True,
-        **kwargs
+            self,
+            method: str,
+            url: str,
+            raise_exception: bool = True,
+            **kwargs
     ) -> tuple[dict | Any, Response]:
         ':meta private:'
         headers = kwargs.pop('headers', {})
@@ -124,7 +124,7 @@ class GuestClient:
         if guest_id := self.http.cookies.get('guest_id'):
             headers['X-Xp-Forwarded-For'] = self.xpff.gen(guest_id)
 
-        response = await self.http.request(method, url, headers=headers, **kwargs)
+        response = await self.http.execute_request(method, url, headers=headers, **kwargs)
 
         try:
             response_data = response.json()
@@ -164,20 +164,13 @@ class GuestClient:
 
     @property
     def proxy(self) -> str:
-        ':meta private:'
-        transport: AsyncHTTPTransport = self.http._mounts.get(
-            URLPattern('all://')
-        )
-        if transport is None:
-            return None
-        if not hasattr(transport._pool, '_proxy_url'):
-            return None
-        return httpx_transport_to_url(transport)
+        return self.http.proxies.get('http')
 
     @proxy.setter
     def proxy(self, url: str) -> None:
-        self.http._mounts = {
-            URLPattern('all://'): AsyncHTTPTransport(proxy=url, verify=False)
+        self.http.proxies = {
+            'http': url,
+            'https': url
         }
 
     @property
@@ -225,8 +218,8 @@ class GuestClient:
 
         Examples
         --------
-        >>> user = await client.get_user_by_screen_name('example_user')
-        >>> print(user)
+        >> user = await client.get_user_by_screen_name('example_user')
+        >> print(user)
         <User id="...">
         """
         response, _ = await self.gql.user_by_screen_name(screen_name)
@@ -248,18 +241,18 @@ class GuestClient:
 
         Examples
         --------
-        >>> user = await client.get_user_by_id('123456789')
-        >>> print(user)
+        >> user = await client.get_user_by_id('123456789')
+        >> print(user)
         <User id="123456789">
         """
         response, _ = await self.gql.user_by_rest_id(user_id)
         return User(self, response['data']['user']['result'])
 
     async def get_user_tweets(
-        self,
-        user_id: str,
-        tweet_type: Literal['Tweets'] = 'Tweets',
-        count: int = 40,
+            self,
+            user_id: str,
+            tweet_type: Literal['Tweets'] = 'Tweets',
+            count: int = 40,
     ) -> list[Tweet]:
         """
         Fetches tweets from a specific user's timeline.
@@ -282,16 +275,16 @@ class GuestClient:
 
         Examples
         --------
-        >>> user_id = '...'
+        >> user_id = '...'
 
         If you only have the screen name, you can get the user id as follows:
 
-        >>> screen_name = 'example_user'
-        >>> user = client.get_user_by_screen_name(screen_name)
-        >>> user_id = user.id
+        >> screen_name = 'example_user'
+        >> user = client.get_user_by_screen_name(screen_name)
+        >> user_id = user.id
 
-        >>> tweets = await client.get_user_tweets(user_id)
-        >>> for tweet in tweets:
+        >> tweets = await client.get_user_tweets(user_id)
+        >> for tweet in tweets:
         ...    print(tweet)
         <Tweet id="...">
         <Tweet id="...">
@@ -306,7 +299,7 @@ class GuestClient:
         f = {
             'Tweets': self.gql.user_tweets,
         }[tweet_type]
-        response, _ = await f(user_id, count, None)
+        response, _ = await f(user_id, count, None)  # noqa
         instructions_ = find_dict(response, 'instructions', True)
         if not instructions_:
             return []
@@ -342,17 +335,17 @@ class GuestClient:
 
         Examples
         --------
-        >>> await client.get_tweet_by_id('123456789')
+        >> await client.get_tweet_by_id('123456789')
         <Tweet id="123456789">
         """
         response, _ = await self.gql.tweet_result_by_rest_id(tweet_id)
         return tweet_from_data(self, response)
 
     async def get_user_highlights_tweets(
-        self,
-        user_id: str,
-        count: int = 20,
-        cursor: str | None = None
+            self,
+            user_id: str,
+            count: int = 20,
+            cursor: str | None = None
     ) -> Result[Tweet]:
         """
         Retrieves highlighted tweets from a user's timeline.
@@ -371,16 +364,16 @@ class GuestClient:
 
         Examples
         --------
-        >>> result = await client.get_user_highlights_tweets('123456789')
-        >>> for tweet in result:
+        >> result = await client.get_user_highlights_tweets('123456789')
+        >> for tweet in result:
         ...     print(tweet)
         <Tweet id="...">
         <Tweet id="...">
         ...
         ...
 
-        >>> more_results = await result.next()  # Retrieve more highlighted tweets
-        >>> for tweet in more_results:
+        >> more_results = await result.next()  # Retrieve more highlighted tweets
+        >> for tweet in more_results:
         ...     print(tweet)
         <Tweet id="...">
         <Tweet id="...">
@@ -409,8 +402,8 @@ class GuestClient:
 
         return Result(
             results,
-            partial(self.get_user_highlights_tweets, user_id, count, next_cursor),
+            partial(self.get_user_highlights_tweets, user_id, count, next_cursor),  # noqa
             next_cursor,
-            partial(self.get_user_highlights_tweets, user_id, count, previous_cursor),
+            partial(self.get_user_highlights_tweets, user_id, count, previous_cursor),  # noqa
             previous_cursor
         )

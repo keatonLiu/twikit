@@ -23,7 +23,7 @@ class StreamingSession:
     """
     def __init__(
         self, client: Client, session_id: str,
-        stream: AsyncGenerator[Payload], topics: set[str], auto_reconnect: bool
+        stream: AsyncGenerator[tuple[str, Payload], None], topics: set[str], auto_reconnect: bool
     ) -> None:
         self._client = client
         self.id = session_id
@@ -58,18 +58,18 @@ class StreamingSession:
 
         Examples
         --------
-        >>> from twikit.streaming import Topic
+        >> from twikit.streaming import Topic
         ...
-        >>> subscribe_topics = {
+        >> subscribe_topics = {
         ...     Topic.tweet_engagement('1749528513'),
         ...     Topic.tweet_engagement('1765829534')
         ... }
-        >>> unsubscribe_topics = {
+        >> unsubscribe_topics = {
         ...     Topic.tweet_engagement('17396176529'),
         ...     Topic.dm_update('17544932482-174455537996'),
         ...     Topic.dm_typing('17544932482-174455537996)'
         ... }
-        >>> await session.update_subscriptions(
+        >> await session.update_subscriptions(
         ...     subscribe_topics, unsubscribe_topics
         ... )
 

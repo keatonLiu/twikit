@@ -7,6 +7,9 @@ name = "twikit"
 dynamic = ["version"]
 description = "Twitter API wrapper for python with no API key required."
 readme = "README.md"
+dependencies = [
+    "noble-tls>=0.1.5",
+]
 
 [project.license]
 text = "MIT"

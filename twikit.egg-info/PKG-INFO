@@ -4,9 +4,10 @@ Version: 2.3.3
 Summary: Twitter API wrapper for python with no API key required.
 Author-email: Keaton Liu <lxtxiaotong@foxmail.com>
 License: MIT
-Project-URL: Homepage, https://github.com/d60/twikit
+Project-URL: Homepage, https://github.com/keatonLiu/twikit#
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: noble-tls>=0.1.5
 Dynamic: license-file
 
 <img src="https://i.imgur.com/iJe6rsZ.png"  width="500">

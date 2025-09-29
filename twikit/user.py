@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Literal
 from .utils import timestamp_to_datetime
 
 if TYPE_CHECKING:
-    from httpx import Response
+    from noble_tls import Response
 
     from .client.client import Client
     from .message import Message
@@ -150,17 +150,17 @@ class User:
 
         Examples
         --------
-        >>> user = await client.get_user_by_screen_name('example_user')
-        >>> tweets = await user.get_tweets('Tweets', count=20)
-        >>> for tweet in tweets:
+        >> user = await client.get_user_by_screen_name('example_user')
+        >> tweets = await user.get_tweets('Tweets', count=20)
+        >> for tweet in tweets:
         ...    print(tweet)
         <Tweet id="...">
         <Tweet id="...">
         ...
         ...
 
-        >>> more_tweets = await tweets.next()  # Retrieve more tweets
-        >>> for tweet in more_tweets:
+        >> more_tweets = await tweets.next()  # Retrieve more tweets
+        >> for tweet in more_tweets:
         ...     print(tweet)
         <Tweet id="...">
         <Tweet id="...">
@@ -202,11 +202,6 @@ class User:
     async def block(self) -> Response:
         """
         Blocks a user.
-
-        Parameters
-        ----------
-        user_id : :class:`str`
-            The ID of the user to block.
 
         Returns
         -------
@@ -425,10 +420,10 @@ class User:
 
         Examples
         --------
-        >>> # send DM with media
-        >>> media_id = await client.upload_media('image.png')
-        >>> message = await user.send_dm('text', media_id)
-        >>> print(message)
+        >> # send DM with media
+        >> media_id = await client.upload_media('image.png')
+        >> message = await user.send_dm('text', media_id)
+        >> print(message)
         <Message id="...">
 
         See Also
@@ -455,17 +450,17 @@ class User:
 
         Examples
         --------
-        >>> messages = await user.get_dm_history()
-        >>> for message in messages:
-        >>>     print(message)
+        >> messages = await user.get_dm_history()
+        >> for message in messages:
+        >>     print(message)
         <Message id="...">
         <Message id="...">
         ...
         ...
 
-        >>> more_messages = await messages.next()  # Retrieve more messages
-        >>> for message in more_messages:
-        >>>     print(message)
+        >> more_messages = await messages.next()  # Retrieve more messages
+        >> for message in more_messages:
+        >>     print(message)
         <Message id="...">
         <Message id="...">
         ...
@@ -489,16 +484,16 @@ class User:
 
         Examples
         --------
-        >>> result = await user.get_highlights_tweets()
-        >>> for tweet in result:
+        >> result = await user.get_highlights_tweets()
+        >> for tweet in result:
         ...     print(tweet)
         <Tweet id="...">
         <Tweet id="...">
         ...
         ...
 
-        >>> more_results = await result.next()  # Retrieve more highlighted tweets
-        >>> for tweet in more_results:
+        >> more_results = await result.next()  # Retrieve more highlighted tweets
+        >> for tweet in more_results:
         ...     print(tweet)
         <Tweet id="...">
         <Tweet id="...">

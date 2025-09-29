@@ -1,3 +1,5 @@
+import json
+import ast
 import re
 
 import js2py_
@@ -19,4 +21,4 @@ def solve_ui_metrics(ui_metrics: str) -> str:
     context.document = MockDocument()
     function = 'function main()' + inner_function
     context.eval(function)
-    return str(context.main()).replace('\'', '"')
+    return json.dumps(ast.literal_eval(context.main()), separators=(",", ":"))

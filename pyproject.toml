@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=42", "wheel"]
+requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,14 +7,6 @@ name = "twikit"
 dynamic = ["version"]
 description = "Twitter API wrapper for python with no API key required."
 readme = "README.md"
-dependencies = [
-    "js2py>=0.74",
-    "noble-tls>=0.1.5",
-]
-
-[project.license]
-text = "MIT"
-
 requires-python = ">=3.11"
 
 dependencies = [
@@ -25,8 +17,12 @@ dependencies = [
     "lxml",
     "webvtt-py",
     "m3u8",
+    "noble-tls>=0.1.5",
     "Js2Py @ git+https://github.com/a-j-albert/Js2Py---supports-python-3.13.git"
 ]
+
+[project.license]
+text = "MIT"
 
 [[project.authors]]
 name = "Keaton Liu"
@@ -36,7 +32,7 @@ email = "lxtxiaotong@foxmail.com"
 Homepage = "https://github.com/keatonLiu/twikit#"
 
 [tool.setuptools]
-packages = { find = {} }    # 自动查找所有子 package
+packages = { find = {} }
 
 [tool.setuptools.dynamic]
 version = { attr = "twikit.__version__" }

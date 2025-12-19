@@ -4,6 +4,6 @@ pyotp
 lxml
 webvtt-py
 m3u8
-Js2Py-3.13
+Js2Py
 pycryptodome
 noble-tls @ git+https://github.com/keatonLiu/noble-tls@add-xgo

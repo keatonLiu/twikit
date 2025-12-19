@@ -40,6 +40,7 @@ twikit/guest/__init__.py
 twikit/guest/client.py
 twikit/guest/tweet.py
 twikit/guest/user.py
+twikit/model/session.py
 twikit/ui_metrics/__init__.py
 twikit/ui_metrics/dom.py
 twikit/x_client_transaction/__init__.py

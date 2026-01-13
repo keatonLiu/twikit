@@ -103,9 +103,9 @@ class User:
         self.urls: list = legacy['entities'].get('url', {}).get('urls')
         self.pinned_tweet_ids: list[str] = legacy['pinned_tweet_ids_str']
         self.is_blue_verified: bool = data['is_blue_verified']
-        self.verified: bool = legacy['verified']
-        self.possibly_sensitive: bool = legacy['possibly_sensitive']
-        self.can_dm: bool = legacy['can_dm']
+        self.verified = data['verification']['verified']
+        self.possibly_sensitive: bool = False
+        self.can_dm = data['dm_permissions']['can_dm']
         self.can_media_tag: bool = data['media_permissions']['can_media_tag']
         self.want_retweets: bool = legacy['want_retweets']
         self.default_profile: bool = legacy['default_profile']
@@ -120,8 +120,8 @@ class User:
         self.media_count = legacy['media_count']
         self.statuses_count: int = legacy['statuses_count']
         self.is_translator: bool = legacy['is_translator']
-        self.translator_type: str = legacy['translator_type']
-        self.withheld_in_countries: list[str] = legacy['withheld_in_countries']
+        self.translator_type = legacy.get('translator_type')
+        self.withheld_in_countries = legacy.get('withheld_in_countries')
         self.protected: bool = legacy.get('protected', False)
 
     @property

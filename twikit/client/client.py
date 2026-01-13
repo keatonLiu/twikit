@@ -508,7 +508,8 @@ class Client:
                 'enter_text': {
                     'text': auth_info_2,
                     'link': 'next_link'
-                }
+                },
+                'castle_token': self.castle_token.get_castle_token()
             })
 
         if flow.task_id == 'DenyLoginSubtask':

@@ -488,20 +488,28 @@ class Client:
                 'link': 'next_link'
             }
         })
-        await flow.execute_task({
-            'subtask_id': 'LoginEnterUserIdentifierSSO',
-            'settings_list': {
-                'setting_responses': [
-                    {
-                        'key': 'user_identifier',
-                        'response_data': {
-                            'text_data': {'result': auth_info_1}
-                        }
+        for _ in range(3):
+            try:
+                await flow.execute_task({
+                    'subtask_id': 'LoginEnterUserIdentifierSSO',
+                    'settings_list': {
+                        'setting_responses': [
+                            {
+                                'key': 'user_identifier',
+                                'response_data': {
+                                    'text_data': {'result': auth_info_1}
+                                }
+                            }
+                        ],
+                        'link': 'next_link'
                     }
-                ],
-                'link': 'next_link'
-            }
-        })
+                })
+                break
+            except TwitterException as e:
+                print(e)
+                continue
+        else:
+            raise TwitterException('LoginEnterUserIdentifierSSO failed after 3 attempts')
 
         if flow.task_id == 'LoginEnterAlternateIdentifierSubtask':
             await flow.execute_task({

@@ -89,6 +89,9 @@ class V11Client:
             'Authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
             'Referer': 'https://x.com/',
             'X-Twitter-Active-User': "yes",
+            'x-twitter-client-language': 'en',
+            'priority': 'u=1, i=1',
+            'pragma': 'no-cache'
         }
         if self.base._get_csrf_token():
             headers["x-csrf-token"] = self.base._get_csrf_token()

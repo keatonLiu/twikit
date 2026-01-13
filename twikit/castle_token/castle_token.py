@@ -1,4 +1,3 @@
-import secrets
 import time
 from typing import TYPE_CHECKING
 
@@ -29,11 +28,20 @@ class CastleToken:
         self._token_timestamp: float | None = None
 
     def _generate_cuid(self) -> str:
-        """
-        Generate a 32-character hexadecimal string for use as cuid.
-        Example: 169c90ba59a6f01cc46e69d2669e080b
-        """
-        return secrets.token_hex(16)
+        import secrets
+        # Generate 16 random bytes (128 bits)
+        random_bytes = bytearray(secrets.token_bytes(16))
+
+        # Set version to 4 (UUID v4) - bits 12-15 of time_hi_and_version
+        # Byte 6: clear top 4 bits, set to 0100 (version 4)
+        random_bytes[6] = (random_bytes[6] & 0x0f) | 0x40
+
+        # Set variant to RFC 4122 - bits 6-7 of clock_seq_hi_and_reserved
+        # Byte 8: clear top 2 bits, set to 10 (variant 1: 8, 9, a, or b)
+        random_bytes[8] = (random_bytes[8] & 0x3f) | 0x80
+
+        # Convert to hex string without dashes
+        return random_bytes.hex()
 
     async def generate_castle_token(self) -> str:
         """
@@ -55,7 +63,8 @@ class CastleToken:
         self._cuid = self._generate_cuid()
 
         # Set __cuid cookie
-        self.client.http.cookies.set('__cuid', self._cuid)
+        self.client.http.cookies.set('__cuid', self._cuid, domain=".x.com")
+        self.client.http.cookies.set('__cuid', self._cuid, domain=".twitter.com")
 
         # Prepare request data
         payload = {

@@ -3,7 +3,7 @@ from __future__ import annotations
 import base64
 import json
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Awaitable, Generic, Iterator, Literal, TypedDict, TypeVar
+from typing import TYPE_CHECKING, Any, Awaitable, Generic, Iterator, Literal, TypedDict, TypeVar, Optional
 
 if TYPE_CHECKING:
     from .client.client import Client
@@ -372,3 +372,61 @@ def build_query(text: str, options: SearchOptions) -> str:
         text += ' ?'
 
     return text
+
+
+def extract_guest_token(html_content: str) -> Optional[str]:
+    """
+    Extract guest token from login page HTML.
+
+    Args:
+        html_content: HTML content of the login page
+
+    Returns:
+        Guest token string or None if not found
+    """
+    return _extract_between(html_content, "gt=", ";")
+
+
+def extract_value(text: str, start_marker: str, end_marker: str) -> Optional[str]:
+    """
+    Extract a value between two markers in text.
+
+    Args:
+        text: Text to search
+        start_marker: Starting marker
+        end_marker: Ending marker
+
+    Returns:
+        Extracted value or empty string if not found
+    """
+    return _extract_between(text, start_marker, end_marker)
+
+
+def _extract_between(
+        text: str, start_text: str, end_text: str
+) -> Optional[str]:
+    """
+    Extract text between two delimiters.
+
+    Args:
+        text: Source text
+        start_text: Start delimiter
+        end_text: End delimiter
+
+    Returns:
+        Extracted text or None
+    """
+    try:
+        start_index = text.find(start_text)
+        if start_index == -1:
+            return None
+
+        start_index += len(start_text)
+        end_index = text.find(end_text, start_index)
+        if end_index == -1:
+            return None
+
+        result = text[start_index:end_index]
+        return result.replace(" ", "").replace("\n", "")
+    except Exception:
+        return None

@@ -497,9 +497,10 @@ class Client:
                         'response_data': {
                             'text_data': {'result': auth_info_1}
                         }
-                    }
+                    },
                 ],
-                'link': 'next_link'
+                'link': 'next_link',
+                'castle_token': await self.castle_token.get_castle_token()
             }
         })
         if flow.task_id == 'LoginEnterAlternateIdentifierSubtask':
@@ -508,7 +509,8 @@ class Client:
                 'enter_text': {
                     'text': auth_info_2,
                     'link': 'next_link'
-                }
+                },
+                'castle_token': await self.castle_token.get_castle_token()
             })
 
         if flow.task_id == 'DenyLoginSubtask':
@@ -519,7 +521,7 @@ class Client:
             'enter_password': {
                 'password': password,
                 'link': 'next_link',
-                'castle_token': self.castle_token.get_castle_token()
+                'castle_token': await self.castle_token.get_castle_token()
             }
         })
 

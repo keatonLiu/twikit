@@ -518,7 +518,8 @@ class Client:
             'subtask_id': 'LoginEnterPassword',
             'enter_password': {
                 'password': password,
-                'link': 'next_link'
+                'link': 'next_link',
+                'castle_token': self.castle_token.get_castle_token()
             }
         })
 

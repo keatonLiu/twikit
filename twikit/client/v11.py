@@ -81,7 +81,7 @@ class V11Client:
             # Inject castle_token if settings_list is present
             for subtask_input in subtask_inputs:
                 if isinstance(subtask_input, dict) and 'settings_list' in subtask_input:
-                    castle_token = await self.base.castle_token.get_castle_token()
+                    castle_token = await self.base.castle_token.generate_castle_token()
                     subtask_input['settings_list']['castle_token'] = castle_token
 
         headers = {

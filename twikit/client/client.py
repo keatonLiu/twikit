@@ -426,52 +426,52 @@ class Client:
                 'flow_context': {
                     'debug_overrides': {},
                     'start_location': {
-                        'location': 'splash_screen'
+                        'location': 'manual_link'
                     }
                 }
             },
             'subtask_versions': {
-                'action_list': 2,
-                'alert_dialog': 1,
-                'app_download_cta': 1,
-                'check_logged_in_account': 1,
-                'choice_selection': 3,
-                'contacts_live_sync_permission_prompt': 0,
-                'cta': 7,
-                'email_verification': 2,
-                'end_flow': 1,
-                'enter_date': 1,
-                'enter_email': 2,
-                'enter_password': 5,
-                'enter_phone': 2,
-                'enter_recaptcha': 1,
-                'enter_text': 5,
-                'enter_username': 2,
-                'generic_urt': 3,
-                'in_app_notification': 1,
-                'interest_picker': 3,
-                'js_instrumentation': 1,
-                'menu_dialog': 1,
-                'notifications_permission_prompt': 2,
-                'open_account': 2,
-                'open_home_timeline': 1,
-                'open_link': 1,
-                'phone_verification': 4,
-                'privacy_options': 1,
-                'security_key': 3,
-                'select_avatar': 4,
-                'select_banner': 2,
-                'settings_list': 7,
-                'show_code': 1,
-                'sign_up': 2,
-                'sign_up_review': 4,
-                'tweet_selection_urt': 1,
-                'update_users': 1,
-                'upload_media': 1,
-                'user_recommendations_list': 4,
-                'user_recommendations_urt': 1,
-                'wait_spinner': 3,
-                'web_modal': 1
+                "action_list": 2,
+                "alert_dialog": 1,
+                "app_download_cta": 1,
+                "check_logged_in_account": 1,
+                "choice_selection": 3,
+                "contacts_live_sync_permission_prompt": 0,
+                "cta": 7,
+                "email_verification": 2,
+                "end_flow": 1,
+                "enter_date": 1,
+                "enter_email": 2,
+                "enter_password": 5,
+                "enter_phone": 2,
+                "enter_recaptcha": 1,
+                "enter_text": 5,
+                "enter_username": 2,
+                "generic_urt": 3,
+                "in_app_notification": 1,
+                "interest_picker": 3,
+                "js_instrumentation": 1,
+                "menu_dialog": 1,
+                "notifications_permission_prompt": 2,
+                "open_account": 2,
+                "open_home_timeline": 1,
+                "open_link": 1,
+                "phone_verification": 4,
+                "privacy_options": 1,
+                "security_key": 3,
+                "select_avatar": 4,
+                "select_banner": 2,
+                "settings_list": 7,
+                "show_code": 1,
+                "sign_up": 2,
+                "sign_up_review": 4,
+                "tweet_selection_urt": 1,
+                "update_users": 1,
+                "upload_media": 1,
+                "user_recommendations_list": 4,
+                "user_recommendations_urt": 1,
+                "wait_spinner": 3,
+                "web_modal": 1,
             }
         })
         await flow.sso_init('apple')
@@ -488,29 +488,20 @@ class Client:
                 'link': 'next_link'
             }
         })
-        for _ in range(3):
-            try:
-                await flow.execute_task({
-                    'subtask_id': 'LoginEnterUserIdentifierSSO',
-                    'settings_list': {
-                        'setting_responses': [
-                            {
-                                'key': 'user_identifier',
-                                'response_data': {
-                                    'text_data': {'result': auth_info_1}
-                                }
-                            }
-                        ],
-                        'link': 'next_link'
+        await flow.execute_task({
+            'subtask_id': 'LoginEnterUserIdentifierSSO',
+            'settings_list': {
+                'setting_responses': [
+                    {
+                        'key': 'user_identifier',
+                        'response_data': {
+                            'text_data': {'result': auth_info_1}
+                        }
                     }
-                })
-                break
-            except TwitterException as e:
-                print(e)
-                continue
-        else:
-            raise TwitterException('LoginEnterUserIdentifierSSO failed after 3 attempts')
-
+                ],
+                'link': 'next_link'
+            }
+        })
         if flow.task_id == 'LoginEnterAlternateIdentifierSubtask':
             await flow.execute_task({
                 'subtask_id': 'LoginEnterAlternateIdentifierSubtask',

@@ -78,8 +78,9 @@ class V11Client:
         if subtask_inputs is not None:
             data['subtask_inputs'] = subtask_inputs
 
-        headers = self.base._base_headers | {
+        headers = {
             'x-guest-token': guest_token,
+            'user-agent': self.base._user_agent,
             'Authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
             'Referer': 'https://x.com/',
             'X-Twitter-Active-User': "yes",

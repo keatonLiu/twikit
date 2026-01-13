@@ -92,12 +92,12 @@ class User:
 
         self.id: str = data['rest_id']
         self.created_at: str = data['core']['created_at']
-        self.name: str = legacy['name']
-        self.screen_name: str = legacy['screen_name']
-        self.profile_image_url: str = legacy['profile_image_url_https']
+        self.name: str = data['core']['name']
+        self.screen_name: str = data['core']['screen_name']
+        self.profile_image_url: str = data['avatar']['image_url']
         self.profile_banner_url: str = legacy.get('profile_banner_url')
         self.url: str = legacy.get('url')
-        self.location: str = legacy['location']
+        self.location: str = data['location']['location']
         self.description: str = legacy['description']
         self.description_urls: list = legacy['entities']['description']['urls']
         self.urls: list = legacy['entities'].get('url', {}).get('urls')
@@ -106,7 +106,7 @@ class User:
         self.verified: bool = legacy['verified']
         self.possibly_sensitive: bool = legacy['possibly_sensitive']
         self.can_dm: bool = legacy['can_dm']
-        self.can_media_tag: bool = legacy['can_media_tag']
+        self.can_media_tag: bool = data['media_permissions']['can_media_tag']
         self.want_retweets: bool = legacy['want_retweets']
         self.default_profile: bool = legacy['default_profile']
         self.default_profile_image: bool = legacy['default_profile_image']

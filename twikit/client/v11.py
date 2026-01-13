@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
 from ..constants import DOMAIN
 
+
 class Endpoint:
     GUEST_ACTIVATE = f'https://api.{DOMAIN}/1.1/guest/activate.json'
     ONBOARDING_SSO_INIT = f'https://api.{DOMAIN}/1.1/onboarding/sso_init.json'
@@ -70,7 +71,7 @@ class V11Client:
             headers=self.base._base_headers
         )
 
-    async def onboarding_task(self, guest_token, token, subtask_inputs, data = None, **kwargs):
+    async def onboarding_task(self, guest_token, token, subtask_inputs, data=None, **kwargs):
         if data is None:
             data = {}
         if token is not None:

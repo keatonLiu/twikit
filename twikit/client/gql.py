@@ -154,7 +154,7 @@ class GQLClient:
             'count': count,
             'querySource': query_source,
             'product': product,
-            "withGrokTranslatedBio": "false",
+            "withGrokTranslatedBio": False,
         }
         if cursor is not None:
             variables['cursor'] = cursor

@@ -31,7 +31,7 @@ class Endpoint:
     def url(path):
         return f'https://{DOMAIN}/i/api/graphql/{path}'
 
-    SEARCH_TIMELINE = url('flaR-PUMshxFWZWPNpq4zA/SearchTimeline')
+    SEARCH_TIMELINE = url('6AAys3t42mosm_yTI_QENg/SearchTimeline')
     SIMILAR_POSTS = url('EToazR74i0rJyZYalfVEAQ/SimilarPosts')
     CREATE_NOTE_TWEET = url('iCUB42lIfXf9qPKctjE5rQ/CreateNoteTweet')
     CREATE_TWEET = url('SiM_cAu83R0wnrpmKQQSEw/CreateTweet')

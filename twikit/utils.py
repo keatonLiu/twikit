@@ -211,7 +211,7 @@ def flatten_params(params: dict) -> dict:
     flattened_params = {}
     for key, value in params.items():
         if isinstance(value, (list, dict)):
-            value = json.dumps(value)
+            value = json.dumps(value, separators=(',', ':'), ensure_ascii=False)
         flattened_params[key] = value
     return flattened_params
 

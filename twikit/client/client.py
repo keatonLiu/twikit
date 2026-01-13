@@ -6,6 +6,7 @@ import json
 import logging
 import multiprocessing
 import os
+import traceback
 import warnings
 from functools import partial
 from http.cookiejar import CookieJar
@@ -889,6 +890,7 @@ class Client:
             try:
                 tweet = tweet_from_data(self, item)
             except KeyError:
+                traceback.print_exc()
                 tweet = None
 
             if tweet is not None:

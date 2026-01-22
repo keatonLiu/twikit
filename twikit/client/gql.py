@@ -31,7 +31,7 @@ class Endpoint:
     def url(path):
         return f'https://{DOMAIN}/i/api/graphql/{path}'
 
-    SEARCH_TIMELINE = url('uZOe1iuU9_B5tl_YGvMc0w/SearchTimeline')
+    SEARCH_TIMELINE = url('6AAys3t42mosm_yTI_QENg/SearchTimeline')
     SIMILAR_POSTS = url('EToazR74i0rJyZYalfVEAQ/SimilarPosts')
     CREATE_NOTE_TWEET = url('iCUB42lIfXf9qPKctjE5rQ/CreateNoteTweet')
     CREATE_TWEET = url('SiM_cAu83R0wnrpmKQQSEw/CreateTweet')
@@ -46,7 +46,7 @@ class Endpoint:
     RETWEETERS = url('X-XEqG5qHQSAwmvy00xfyQ/Retweeters')
     FAVORITERS = url('LLkw5EcVutJL6y-2gkz22A/Favoriters')
     FETCH_COMMUNITY_NOTE = url('fKWPPj271aTM-AB9Xp48IA/BirdwatchFetchOneNote')
-    USER_TWEETS = url('ehYmFq6d3xwc49yqt52MIg/UserTweets')
+    USER_TWEETS = url('QWF3SzpHmykQHsQMixG0cg/UserTweets')
     USER_TWEETS_AND_REPLIES = url('vMkJyzx1wdmvOeeNG0n6Wg/UserTweetsAndReplies')
     USER_MEDIA = url('2tLOJWwGuCTytDrGBg8VwQ/UserMedia')
     USER_LIKES = url('IohM3gxQHfvWePH5E3KuNA/Likes')

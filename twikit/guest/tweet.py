@@ -108,7 +108,7 @@ class Tweet:
         self.possibly_sensitive: bool = legacy.get('possibly_sensitive')
         self.possibly_sensitive_editable: bool = legacy.get('possibly_sensitive_editable')
         self.quote_count: int = legacy['quote_count']
-        self._media: list = legacy['entities'].get('media', [])
+        self._media: list = legacy['entities'].get('media')
         self.reply_count: int = legacy['reply_count']
         self.favorite_count: int = legacy['favorite_count']
         self.favorited: bool = legacy['favorited']
@@ -125,7 +125,6 @@ class Tweet:
         self.view_count_state: str = data['views'].get('state') if 'views' in data else None
         self.has_community_notes: bool = data.get('has_birdwatch_notes')
 
-        self.quote = None
         if data.get('quoted_status_result'):
             quoted_tweet = data.pop('quoted_status_result')['result']
             if 'tweet' in quoted_tweet:

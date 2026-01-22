@@ -91,22 +91,22 @@ class User:
         legacy = data['legacy']
 
         self.id: str = data['rest_id']
-        self.created_at: str = data['core']['created_at']
-        self.name: str = data['core']['name']
-        self.screen_name: str = data['core']['screen_name']
-        self.profile_image_url: str = data['avatar']['image_url']
+        self.created_at: str = legacy['created_at']
+        self.name: str = legacy['name']
+        self.screen_name: str = legacy['screen_name']
+        self.profile_image_url: str = legacy['profile_image_url_https']
         self.profile_banner_url: str = legacy.get('profile_banner_url')
         self.url: str = legacy.get('url')
-        self.location: str = data['location']['location']
+        self.location: str = legacy['location']
         self.description: str = legacy['description']
         self.description_urls: list = legacy['entities']['description']['urls']
         self.urls: list = legacy['entities'].get('url', {}).get('urls')
         self.pinned_tweet_ids: list[str] = legacy['pinned_tweet_ids_str']
         self.is_blue_verified: bool = data['is_blue_verified']
-        self.verified = data['verification']['verified']
-        self.possibly_sensitive: bool = False
-        self.can_dm = data['dm_permissions']['can_dm']
-        self.can_media_tag: bool = data['media_permissions']['can_media_tag']
+        self.verified: bool = legacy['verified']
+        self.possibly_sensitive: bool = legacy['possibly_sensitive']
+        self.can_dm: bool = legacy['can_dm']
+        self.can_media_tag: bool = legacy['can_media_tag']
         self.want_retweets: bool = legacy['want_retweets']
         self.default_profile: bool = legacy['default_profile']
         self.default_profile_image: bool = legacy['default_profile_image']
@@ -120,8 +120,8 @@ class User:
         self.media_count = legacy['media_count']
         self.statuses_count: int = legacy['statuses_count']
         self.is_translator: bool = legacy['is_translator']
-        self.translator_type = legacy.get('translator_type')
-        self.withheld_in_countries = legacy.get('withheld_in_countries')
+        self.translator_type: str = legacy['translator_type']
+        self.withheld_in_countries: list[str] = legacy['withheld_in_countries']
         self.protected: bool = legacy.get('protected', False)
 
     @property

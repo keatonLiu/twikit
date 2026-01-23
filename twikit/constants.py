@@ -27,6 +27,41 @@ FEATURES = {
     'responsive_web_enhance_cards_enabled': False
 }
 
+FEATURES.update({
+    # creator / premium
+    "creator_subscriptions_quote_tweet_preview_enabled": False,
+    "premium_content_api_read_enabled": False,
+
+    # post / CTA
+    "post_ctas_fetch_enabled": False,
+
+    # video / rweb
+    "rweb_video_screen_enabled": False,
+    "rweb_tipjar_consumption_enabled": False,
+    "responsive_web_jetfuel_frame": False,
+
+    # communities
+    "communities_web_enable_tweet_community_results_fetch": False,
+
+    # articles
+    "articles_preview_enabled": False,
+
+    # profile
+    "responsive_web_profile_redirect_enabled": False,
+    "profile_label_improvements_pcf_label_in_post_enabled": False,
+
+    # Grok 相关（重点）
+    "responsive_web_grok_show_grok_translated_post": False,
+    "responsive_web_grok_image_annotation_enabled": False,
+    "responsive_web_grok_analysis_button_from_backend": False,
+    "responsive_web_grok_analyze_button_fetch_trends_enabled": False,
+    "responsive_web_grok_community_note_auto_translation_is_enabled": False,
+    "responsive_web_grok_share_attachment_enabled": False,
+    "responsive_web_grok_annotations_enabled": False,
+    "responsive_web_grok_imagine_annotation_enabled": False,
+    "responsive_web_grok_analyze_post_followups_enabled": False,
+})
+
 USER_FEATURES = {
     'hidden_profile_likes_enabled': True,
     'hidden_profile_subscriptions_enabled': True,

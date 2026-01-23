@@ -5,11 +5,11 @@ from noble_tls import Session, Client
 
 class BaseSession(Session):
     def __init__(self, *args, **kwargs):
-        kwargs['client'] = Client.CHROME_133
+        kwargs['client'] = Client.CHROME_131
         kwargs['random_tls_extension_order'] = True
         super().__init__(*args, **kwargs)
         self.headers.update({
-            'User-Agent': "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36"
+            'User-Agent': "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
         })
 
     async def request(

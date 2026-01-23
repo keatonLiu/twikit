@@ -145,6 +145,7 @@ class Client:
         self.gql = GQLClient(self)
         self.v11 = V11Client(self)
         self.xpff = XPFFHeaderGenerator(user_agent=user_agent)
+        self.cookies_file = None
 
     async def init_transaction(self):
         ct_headers = {
@@ -219,8 +220,9 @@ class Client:
 
         cookies_backup = self.copy_cookies()
         response = await self.http.execute_request(method, url, headers=headers, **kwargs)
-
         self._remove_duplicate_ct0_cookie()
+        if self.cookies_file:
+            self.save_cookies()
 
         try:
             response_data = response.json()
@@ -413,6 +415,7 @@ class Client:
         ... )
         """
         self.http.cookies.clear()
+        self.cookies_file = cookies_file
 
         if cookies_file and os.path.exists(cookies_file):
             self.load_cookies(cookies_file)
@@ -671,7 +674,7 @@ class Client:
             cookie_jar.set_cookie(cookie)
         return cookie_jar
 
-    def save_cookies(self, path: str) -> None:
+    def save_cookies(self, cookies_file: str = None) -> None:
         """
         Save cookies to file in json format.
         You can skip the login procedure by loading the saved cookies
@@ -679,7 +682,7 @@ class Client:
 
         Parameters
         ----------
-        path : :class:`str`
+        cookies_file : :class:`str`, default=None
             The path to the file where the cookie will be stored.
 
         Examples
@@ -692,6 +695,12 @@ class Client:
         .get_cookies
         .set_cookies
         """
+        if cookies_file is None:
+            cookies_file = self.cookies_file
+
+        if not cookies_file:
+            raise ValueError('cookies_file is None and self.cookies_file is None.')
+
         cookies_dict = [
             {
                 "name": c.name,
@@ -704,7 +713,7 @@ class Client:
             for c in self.http.cookies
         ]
 
-        with open(path, "w") as f:
+        with open(cookies_file, "w", encoding='utf-8') as f:
             json.dump(cookies_dict, f, ensure_ascii=False, indent=4)
 
     def set_cookies(self, cookies: dict | CookieJar, clear_cookies: bool = False) -> None:

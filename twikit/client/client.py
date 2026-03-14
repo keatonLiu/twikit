@@ -221,7 +221,7 @@ class Client:
         cookies_backup = self.copy_cookies()
         response = await self.http.execute_request(method, url, headers=headers, **kwargs)
         self._remove_duplicate_ct0_cookie()
-        if self.cookies_file:
+        if self.cookies_file and os.path.exists(self.cookies_file):
             self.save_cookies()
 
         try:

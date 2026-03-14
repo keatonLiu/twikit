@@ -26,6 +26,7 @@ class CastleToken:
         self._castle_token: str | None = None
         self._cuid: str | None = None
         self._token_timestamp: float | None = None
+        self.headers = {}
 
     def _generate_cuid(self) -> str:
         import secrets
@@ -88,6 +89,7 @@ class CastleToken:
         response_data = response.json()
         self._castle_token = response_data.get('token', '')
         self._token_timestamp = time.time()
+        self.headers = response_data.get('headers', {})
 
         return self._castle_token
 

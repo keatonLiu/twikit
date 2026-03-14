@@ -414,7 +414,6 @@ class Client:
         ...     password='00000000'
         ... )
         """
-        self.http.cookies.clear()
         self.cookies_file = cookies_file
 
         if cookies_file and os.path.exists(cookies_file):
@@ -1660,7 +1659,7 @@ class Client:
                 results.append(tweet)
 
         if entries[-1]['entryId'].startswith('cursor'):
-            next_cursor = entries[-1]['content']['itemContent']['value']
+            next_cursor = entries[-1]['content']['value']
             _fetch_next_result = partial(self._get_more_replies, tweet_id, next_cursor)
         else:
             next_cursor = None
@@ -1769,7 +1768,7 @@ class Client:
 
         if entries[-1]['entryId'].startswith('cursor'):
             # if has more replies
-            reply_next_cursor = entries[-1]['content']['itemContent']['value']
+            reply_next_cursor = entries[-1]['content']['value']
             _fetch_more_replies = partial(self._get_more_replies,
                                           tweet_id, reply_next_cursor)
         else:

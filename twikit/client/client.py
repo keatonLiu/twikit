@@ -221,7 +221,7 @@ class Client:
         cookies_backup = self.copy_cookies()
         response = await self.http.execute_request(method, url, headers=headers, **kwargs)
         self._remove_duplicate_ct0_cookie()
-        if self.cookies_file:
+        if self.cookies_file and os.path.exists(self.cookies_file):
             self.save_cookies()
 
         try:
@@ -491,6 +491,7 @@ class Client:
                 'link': 'next_link'
             }
         })
+        token = await self.castle_token.get_castle_token()
         await flow.execute_task({
             'subtask_id': 'LoginEnterUserIdentifierSSO',
             'settings_list': {
@@ -503,9 +504,10 @@ class Client:
                     },
                 ],
                 'link': 'next_link',
-                'castle_token': await self.castle_token.get_castle_token()
+                'castle_token':token,
             }
-        })
+        }, headers=self.castle_token.headers)
+
         if flow.task_id == 'LoginEnterAlternateIdentifierSubtask':
             await flow.execute_task({
                 'subtask_id': 'LoginEnterAlternateIdentifierSubtask',

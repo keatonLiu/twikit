@@ -89,7 +89,7 @@ class V11Client:
             'priority': 'u=1, i=1',
             'pragma': 'no-cache'
         }
-        headers.update(kwargs.get('headers', {}))
+        headers.update(kwargs.pop('headers', {}))
         if self.base._get_csrf_token():
             headers["x-csrf-token"] = self.base._get_csrf_token()
             headers["x-twitter-auth-type"] = "OAuth2Session"

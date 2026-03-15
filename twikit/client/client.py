@@ -64,7 +64,7 @@ from ..utils import (
 )
 from ..x_client_transaction import ClientTransaction
 from ..xpff.xpffGenerator import XPFFHeaderGenerator
-from ..castle_token import CastleToken
+from ..castle import CastleToken
 
 
 def _target(q, func, data):

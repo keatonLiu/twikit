@@ -1,4 +1,5 @@
 dist
 docs
 examples
+result
 twikit

@@ -18,7 +18,8 @@ dependencies = [
     "webvtt-py",
     "m3u8",
     "noble-tls>=0.1.5",
-    "Js2Py @ git+https://github.com/a-j-albert/Js2Py---supports-python-3.13.git"
+    "Js2Py @ git+https://github.com/a-j-albert/Js2Py---supports-python-3.13.git",
+    "twitter_castle_token @ git+https://github.com/d60/twitter_castle_token.git"
 ]
 
 [project.license]

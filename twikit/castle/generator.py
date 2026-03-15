@@ -130,7 +130,7 @@ class CastleTokenLocal(CastleTokenAPI):
         # Generate castle token
         init_time = int(self._token_timestamp * 1000)
         self._castle_token = CastleToken(
-            init_time, self._cuid, fingerprint=preset2(init_time)
+            init_time, self._cuid
         ).create_token()
         self.headers = {}
 

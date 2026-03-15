@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from time import sleep
 
-import noble_tls
-
 from .base import CaptchaSolver
 from ..model.session import BaseSession
 

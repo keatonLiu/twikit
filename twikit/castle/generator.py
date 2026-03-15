@@ -1,11 +1,15 @@
 import time
 from typing import TYPE_CHECKING
 
+from castle_token import CastleToken
+
+from .fingerprint import preset2
+
 if TYPE_CHECKING:
     from ..client.client import Client
 
 
-class CastleToken:
+class CastleTokenAPI:
     """
     Handles Castle Token generation for Twitter API requests.
     The token is cached for 1 minute to avoid unnecessary API calls.
@@ -109,5 +113,25 @@ class CastleToken:
         # Check if token is older than 60 seconds
         if time.time() - self._token_timestamp > 60:
             return await self.generate_castle_token()
+
+        return self._castle_token
+
+
+class CastleTokenLocal(CastleTokenAPI):
+    async def generate_castle_token(self) -> str:
+        self._token_timestamp = time.time()
+        # Generate cuid
+        self._cuid = self._generate_cuid()
+
+        # Set __cuid cookie
+        self.client.http.cookies.set('__cuid', self._cuid, domain=".x.com")
+        self.client.http.cookies.set('__cuid', self._cuid, domain=".twitter.com")
+
+        # Generate castle token
+        init_time = int(self._token_timestamp * 1000)
+        self._castle_token = CastleToken(
+            init_time, self._cuid
+        ).create_token()
+        self.headers = {}
 
         return self._castle_token

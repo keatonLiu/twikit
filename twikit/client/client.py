@@ -23,6 +23,7 @@ from .gql import GQLClient
 from .v11 import V11Client
 from .._captcha import Capsolver
 from ..bookmark import BookmarkFolder
+from ..castle.generator import CastleTokenLocal
 from ..community import Community, CommunityMember
 from ..constants import TOKEN, DOMAIN
 from ..errors import (
@@ -64,7 +65,6 @@ from ..utils import (
 )
 from ..x_client_transaction import ClientTransaction
 from ..xpff.xpffGenerator import XPFFHeaderGenerator
-from ..castle import CastleToken
 
 
 def _target(q, func, data):
@@ -134,7 +134,7 @@ class Client:
         if captcha_solver is not None:
             captcha_solver.client = self
         self.client_transaction = ClientTransaction()
-        self.castle_token = CastleToken(self, api_key=castle_api_key)
+        self.castle_token = CastleTokenLocal(self, api_key=castle_api_key)
         self.logger = kwargs.get('logger', logging.getLogger(__name__))
 
         self._token = TOKEN

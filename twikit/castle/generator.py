@@ -3,6 +3,8 @@ from typing import TYPE_CHECKING
 
 from castle_token import CastleToken
 
+from .fingerprint import preset2
+
 if TYPE_CHECKING:
     from ..client.client import Client
 
@@ -126,7 +128,10 @@ class CastleTokenLocal(CastleTokenAPI):
         self.client.http.cookies.set('__cuid', self._cuid, domain=".twitter.com")
 
         # Generate castle token
-        self._castle_token = CastleToken(int(self._token_timestamp * 1000), self._cuid).create_token()
+        init_time = int(self._token_timestamp * 1000)
+        self._castle_token = CastleToken(
+            init_time, self._cuid, fingerprint=preset2(init_time)
+        ).create_token()
         self.headers = {}
 
         return self._castle_token

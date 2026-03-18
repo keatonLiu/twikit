@@ -1,13 +1,14 @@
 import asyncio
-import re
-import bs4
-import math
-import time
-import random
 import base64
 import hashlib
-from typing import Union, List
-from functools import reduce
+import math
+import random
+import re
+import time
+from functools import reduce, lru_cache
+
+import bs4
+
 from .cubic_curve import Cubic
 from .interpolate import interpolate
 from .rotation import convert_rotation_to_matrix
@@ -17,7 +18,7 @@ ON_DEMAND_FILE_REGEX: re.Pattern = re.compile(
     r""",(\d+):["']ondemand\.s["']""", flags=(re.VERBOSE | re.MULTILINE))
 
 INDICES_REGEX = re.compile(
-    r"""(\(\w{1}\[(\d{1,2})\],\s*16\))+""", flags=(re.VERBOSE | re.MULTILINE))
+    r"""(\(\w\[(\d{1,2})],\s*16\))+""", flags=(re.VERBOSE | re.MULTILINE))
 ON_DEMAND_FILE_URL: str = "https://abs.twimg.com/responsive-web/client-web/ondemand.s.{filename}a.js"
 
 
@@ -28,36 +29,32 @@ class ClientTransaction:
     DEFAULT_KEY_BYTES_INDICES = None
 
     def __init__(self):
+        self.home_page_response = None
         self.__inited = False
         self.init_lock = asyncio.Lock()
+        self.session = None
+        self.headers = {}
 
     async def is_inited(self):
         async with self.init_lock:
             return self.__inited
 
     async def init(self, session, headers):
-        home_page_response = await handle_x_migration(session, headers)
-        home_page_response = self.validate_response(home_page_response)
-        self.DEFAULT_ROW_INDEX, self.DEFAULT_KEY_BYTES_INDICES = await self.get_indices(
-            home_page_response, session, headers)
-        self.key = self.get_key(response=home_page_response)
-        self.key_bytes = self.get_key_bytes(key=self.key)
-        self.animation_key = self.get_animation_key(
-            key_bytes=self.key_bytes, response=home_page_response)
-        self.home_page_response = home_page_response
+        self.session = session
+        self.headers = headers
+        self.home_page_response = await handle_x_migration(session, headers)
+        self.DEFAULT_ROW_INDEX, self.DEFAULT_KEY_BYTES_INDICES = await self.get_indices()
         self.__inited = True
 
-    async def get_indices(self, home_page_response, session, headers):
+    async def get_indices(self):
         key_byte_indices = []
-        response = self.validate_response(
-            home_page_response) or self.home_page_response
-        on_demand_file_index = ON_DEMAND_FILE_REGEX.search(str(response)).group(1)
+        on_demand_file_index = ON_DEMAND_FILE_REGEX.search(str(self.home_page_response)).group(1)
         regex = re.compile(
             rf',{on_demand_file_index}:\"(?!.*ondemand\.s)(.*?)\"'
         )
-        filename = regex.search(str(response)).group(1)
+        filename = regex.search(str(self.home_page_response)).group(1)
         file_url = ON_DEMAND_FILE_URL.format(filename=filename)
-        on_demand_file_response = await session.request(method="GET", url=file_url, headers=headers)
+        on_demand_file_response = await self.session.request(method="GET", url=file_url, headers=self.headers)
         on_demand_file_response_text = on_demand_file_response.text
         key_byte_indices_match = INDICES_REGEX.finditer(
             str(on_demand_file_response.text))
@@ -73,28 +70,32 @@ class ClientTransaction:
             raise Exception("invalid response")
         return response
 
-    def get_key(self, response=None):
-        response = self.validate_response(response) or self.home_page_response
+    @property
+    @lru_cache()
+    def key(self):
         # <meta name="twitter-site-verification" content="mentU...+1yPz..../IcNS+......./RaF...R+b"/>
-        element = response.select_one("[name='twitter-site-verification']")
+        element = self.home_page_response.select_one("[name='twitter-site-verification']")
         if not element:
             raise Exception("Couldn't get key from the page source")
         return element.get("content")
 
-    def get_key_bytes(self, key: str):
-        return list(base64.b64decode(bytes(key, 'utf-8')))
+    @property
+    @lru_cache()
+    def key_bytes(self):
+        return list(base64.b64decode(bytes(self.key, 'utf-8')))
 
-    def get_frames(self, response=None):
+    @property
+    @lru_cache()
+    def frames(self):
         # loading-x-anim-0...loading-x-anim-3
-        response = self.validate_response(response) or self.home_page_response
-        return response.select("[id^='loading-x-anim']")
+        return self.home_page_response.select("[id^='loading-x-anim']")
 
-    def get_2d_array(self, key_bytes: List[Union[float, int]], response, frames: bs4.ResultSet = None):
-        if not frames:
-            frames = self.get_frames(response)
+    @property
+    @lru_cache()
+    def _2d_array(self):
         # return list(list(frames[key[5] % 4].children)[0].children)[1].get("d")[9:].split("C")
         return [[int(x) for x in re.sub(r"[^\d]+", " ", item).strip().split()] for item in
-                list(list(frames[key_bytes[5] % 4].children)[0].children)[1].get("d")[9:].split("C")]
+                list(list(self.frames[self.key_bytes[5] % 4].children)[0].children)[1].get("d")[9:].split("C")]
 
     def solve(self, value, min_val, max_val, rounding: bool):
         result = value * (max_val - min_val) / 255 + min_val
@@ -137,38 +138,34 @@ class ClientTransaction:
         animation_key = re.sub(r"[.-]", "", "".join(str_arr))
         return animation_key
 
-    def get_animation_key(self, key_bytes, response):
+    @property
+    @lru_cache()
+    def animation_key(self):
         total_time = 4096
         # row_index, frame_time = [key_bytes[2] % 16, key_bytes[12] % 16 * (key_bytes[14] % 16) * (key_bytes[7] % 16)]
         # row_index, frame_time = [key_bytes[2] % 16, key_bytes[2] % 16 * (key_bytes[42] % 16) * (key_bytes[45] % 16)]
 
-        row_index = key_bytes[self.DEFAULT_ROW_INDEX] % 16
+        row_index = self.key_bytes[self.DEFAULT_ROW_INDEX] % 16
         frame_time = reduce(lambda num1, num2: num1 * num2,
-                            [key_bytes[index] % 16 for index in self.DEFAULT_KEY_BYTES_INDICES])
+                            [self.key_bytes[index] % 16 for index in self.DEFAULT_KEY_BYTES_INDICES])
         frame_time = round(frame_time / 10) * 10
-        arr = self.get_2d_array(key_bytes, response)
-        frame_row = arr[row_index]
+        frame_row = self._2d_array[row_index]
 
         target_time = float(frame_time) / total_time
         animation_key = self.animate(frame_row, target_time)
         return animation_key
 
-    def generate_transaction_id(self, method: str, path: str, response=None, key=None, animation_key=None,
-                                time_now=None):
+    def generate_transaction_id(self, method: str, path: str, time_now=None):
         time_now = time_now or math.floor(
             (time.time() * 1000 - 1682924400 * 1000) / 1000)
         time_now_bytes = [(time_now >> (i * 8)) & 0xFF for i in range(4)]
-        key = key or self.key or self.get_key(response)
-        key_bytes = self.get_key_bytes(key)
-        animation_key = animation_key or self.animation_key or self.get_animation_key(
-            key_bytes, response)
         # hash_val = hashlib.sha256(f"{method}!{path}!{time_now}bird{animation_key}".encode()).digest()
         hash_val = hashlib.sha256(
-            f"{method}!{path}!{time_now}{self.DEFAULT_KEYWORD}{animation_key}".encode()).digest()
+            f"{method}!{path}!{time_now}{self.DEFAULT_KEYWORD}{self.animation_key}".encode()).digest()
         # hash_bytes = [int(hash_val[i]) for i in range(len(hash_val))]
         hash_bytes = list(hash_val)
         random_num = random.randint(0, 255)
-        bytes_arr = [*key_bytes, *time_now_bytes, *
+        bytes_arr = [*self.key_bytes, *time_now_bytes, *
         hash_bytes[:16], self.ADDITIONAL_RANDOM_NUMBER]
         out = bytearray(
             [random_num, *[item ^ random_num for item in bytes_arr]])

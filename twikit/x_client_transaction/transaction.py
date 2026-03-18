@@ -7,8 +7,6 @@ import re
 import time
 from functools import reduce, lru_cache
 
-import bs4
-
 from .cubic_curve import Cubic
 from .interpolate import interpolate
 from .rotation import convert_rotation_to_matrix
@@ -64,11 +62,6 @@ class ClientTransaction:
             raise Exception(f"Couldn't get KEY_BYTE indices: {on_demand_file_response_text}")
         key_byte_indices = list(map(int, key_byte_indices))
         return key_byte_indices[0], key_byte_indices[1:]
-
-    def validate_response(self, response: bs4.BeautifulSoup):
-        if not isinstance(response, bs4.BeautifulSoup):
-            raise Exception("invalid response")
-        return response
 
     @property
     @lru_cache()

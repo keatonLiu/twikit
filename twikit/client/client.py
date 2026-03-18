@@ -230,11 +230,7 @@ class Client:
             response_data = response.text
 
         if isinstance(response_data, dict) and 'errors' in response_data:
-            try:
-                error_code = response_data['errors'][0]['code']
-            except (KeyError, IndexError):
-                self.logger.info(f"Failed to parse error code from response: {response_data}")
-                raise
+            error_code = response_data['errors'][0].get('code')
             error_message = response_data['errors'][0].get('message')
             if error_code in (37, 64):
                 # Account suspended

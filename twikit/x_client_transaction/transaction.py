@@ -13,10 +13,12 @@ from .interpolate import interpolate
 from .rotation import convert_rotation_to_matrix
 from .utils import float_to_hex, is_odd, base64_encode, handle_x_migration
 
-ON_DEMAND_FILE_REGEX = re.compile(
-    r"""['|\"]{1}ondemand\.s['|\"]{1}:\s*['|\"]{1}([\w]*)['|\"]{1}""", flags=(re.VERBOSE | re.MULTILINE))
+ON_DEMAND_FILE_REGEX: re.Pattern = re.compile(
+    r""",(\d+):["']ondemand\.s["']""", flags=(re.VERBOSE | re.MULTILINE))
+
 INDICES_REGEX = re.compile(
     r"""(\(\w{1}\[(\d{1,2})\],\s*16\))+""", flags=(re.VERBOSE | re.MULTILINE))
+ON_DEMAND_FILE_URL: str = "https://abs.twimg.com/responsive-web/client-web/ondemand.s.{filename}a.js"
 
 
 class ClientTransaction:
@@ -49,17 +51,18 @@ class ClientTransaction:
         key_byte_indices = []
         response = self.validate_response(
             home_page_response) or self.home_page_response
-        on_demand_file = ON_DEMAND_FILE_REGEX.search(str(response))
-        if on_demand_file:
-            on_demand_file_url = f"https://abs.twimg.com/responsive-web/client-web/ondemand.s.{on_demand_file.group(1)}a.js"
-            on_demand_file_response = await session.request(method="GET", url=on_demand_file_url, headers=headers)
-            on_demand_file_response_text = on_demand_file_response.text
-            key_byte_indices_match = INDICES_REGEX.finditer(
-                str(on_demand_file_response.text))
-            for item in key_byte_indices_match:
-                key_byte_indices.append(item.group(2))
-        else:
-            raise Exception(f"Couldn't find on_demand_file: {str(response)}")
+        on_demand_file_index = ON_DEMAND_FILE_REGEX.search(str(response)).group(1)
+        regex = re.compile(
+            rf',{on_demand_file_index}:\"(?!.*ondemand\.s)(.*?)\"'
+        )
+        filename = regex.search(str(response)).group(1)
+        file_url = ON_DEMAND_FILE_URL.format(filename=filename)
+        on_demand_file_response = await session.request(method="GET", url=file_url, headers=headers)
+        on_demand_file_response_text = on_demand_file_response.text
+        key_byte_indices_match = INDICES_REGEX.finditer(
+            str(on_demand_file_response.text))
+        for item in key_byte_indices_match:
+            key_byte_indices.append(item.group(2))
         if not key_byte_indices:
             raise Exception(f"Couldn't get KEY_BYTE indices: {on_demand_file_response_text}")
         key_byte_indices = list(map(int, key_byte_indices))

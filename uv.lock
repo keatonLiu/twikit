@@ -382,15 +382,11 @@ wheels = [
 [[package]]
 name = "noble-tls"
 version = "0.1.5"
-source = { registry = "https://pypi.corp.kuaishou.com/kuaishou/prod/+simple/" }
+source = { git = "https://github.com/keatonLiu/noble-tls?rev=add-xgo#bf42814afea3fcf764e166f2ec817b4944f5ed91" }
 dependencies = [
     { name = "distro" },
     { name = "httpx" },
     { name = "requests" },
-]
-sdist = { url = "https://pypi.corp.kuaishou.com/kuaishou/prod/noble-tls/0.1.5/noble_tls-0.1.5.tar.gz", hash = "sha256:205b3d16f5ecb7c44e62b55cc5f74177ce85eb38a0e1699a5b1cd656fc345116" }
-wheels = [
-    { url = "https://pypi.corp.kuaishou.com/kuaishou/prod/noble-tls/0.1.5/noble_tls-0.1.5-py3-none-any.whl", hash = "sha256:4627e0a822182bd97be371f1e930f960ddb02ae1c2d545a7fd2d47bbcae1055e" },
 ]
 
 [[package]]
@@ -483,7 +479,7 @@ requires-dist = [
     { name = "js2py", git = "https://github.com/a-j-albert/Js2Py---supports-python-3.13.git" },
     { name = "lxml" },
     { name = "m3u8" },
-    { name = "noble-tls", specifier = ">=0.1.5" },
+    { name = "noble-tls", git = "https://github.com/keatonLiu/noble-tls?rev=add-xgo" },
     { name = "pyotp" },
     { name = "twitter-castle-token", git = "https://github.com/d60/twitter_castle_token.git" },
     { name = "webvtt-py" },

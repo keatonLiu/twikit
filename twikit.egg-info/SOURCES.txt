@@ -34,8 +34,8 @@ twikit.egg-info/top_level.txt
 twikit/_captcha/__init__.py
 twikit/_captcha/base.py
 twikit/_captcha/capsolver.py
-twikit/castle_token/__init__.py
-twikit/castle_token/castle_token.py
+twikit/castle/fingerprint.py
+twikit/castle/generator.py
 twikit/client/client.py
 twikit/client/gql.py
 twikit/client/v11.py

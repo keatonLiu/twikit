@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from typing import TYPE_CHECKING, Literal
 
@@ -88,7 +89,10 @@ class User:
 
     def __init__(self, client: Client, data: dict) -> None:
         self._client = client
-        legacy = data['legacy']
+        try:
+            legacy = data['legacy']
+        except KeyError:
+            raise ValueError(f"Failed to parse user data: {json.dumps(data, ensure_ascii=False)}")
 
         self.id: str = data['rest_id']
         self.created_at: str = legacy['created_at']
@@ -129,9 +133,9 @@ class User:
         return timestamp_to_datetime(self.created_at)
 
     async def get_tweets(
-        self,
-        tweet_type: Literal['Tweets', 'Replies', 'Media', 'Likes'],
-        count: int = 40,
+            self,
+            tweet_type: Literal['Tweets', 'Replies', 'Media', 'Likes'],
+            count: int = 40,
     ) -> Result[Tweet]:
         """
         Retrieves the user's tweets.
@@ -375,7 +379,7 @@ class User:
         return await self._client.get_user_subscriptions(self.id, count)
 
     async def get_latest_followers(
-        self, count: int | None = None, cursor: str | None = None
+            self, count: int | None = None, cursor: str | None = None
     ) -> Result[User]:
         """
         Retrieves the latest followers.
@@ -386,7 +390,7 @@ class User:
         )
 
     async def get_latest_friends(
-        self, count: int | None = None, cursor: str | None = None
+            self, count: int | None = None, cursor: str | None = None
     ) -> Result[User]:
         """
         Retrieves the latest friends (following users).
@@ -397,7 +401,7 @@ class User:
         )
 
     async def send_dm(
-        self, text: str, media_id: str = None, reply_to = None
+            self, text: str, media_id: str = None, reply_to=None
     ) -> Message:
         """
         Send a direct message to the user.

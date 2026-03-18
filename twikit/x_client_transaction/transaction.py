@@ -50,7 +50,6 @@ class ClientTransaction:
         response = self.validate_response(
             home_page_response) or self.home_page_response
         on_demand_file = ON_DEMAND_FILE_REGEX.search(str(response))
-        on_demand_file_response_text = ""
         if on_demand_file:
             on_demand_file_url = f"https://abs.twimg.com/responsive-web/client-web/ondemand.s.{on_demand_file.group(1)}a.js"
             on_demand_file_response = await session.request(method="GET", url=on_demand_file_url, headers=headers)
@@ -59,6 +58,8 @@ class ClientTransaction:
                 str(on_demand_file_response.text))
             for item in key_byte_indices_match:
                 key_byte_indices.append(item.group(2))
+        else:
+            raise Exception(f"Couldn't find on_demand_file: {str(response)}")
         if not key_byte_indices:
             raise Exception(f"Couldn't get KEY_BYTE indices: {on_demand_file_response_text}")
         key_byte_indices = list(map(int, key_byte_indices))

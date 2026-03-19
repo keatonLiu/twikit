@@ -21,7 +21,8 @@ from ..errors import (
     ServerError,
     TooManyRequests,
     TwitterException,
-    Unauthorized
+    Unauthorized,
+    UserNotFound,
 )
 from ..model.session import BaseSession
 from ..utils import Result, find_dict, find_entry_by_type

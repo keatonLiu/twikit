@@ -23,6 +23,7 @@ from ..errors import (
     TwitterException,
     Unauthorized,
     UserNotFound,
+    UserUnavailable,
 )
 from ..model.session import BaseSession
 from ..utils import Result, find_dict, find_entry_by_type

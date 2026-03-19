@@ -874,15 +874,11 @@ class Client:
         if product == 'Media' and cursor is not None:
             items = find_dict(instructions, 'moduleItems', find_one=True)[0]
         else:
-            items_ = find_dict(instructions, 'entry', find_one=True)
-            if items_:
-                items = [items_[0]]
-            else:
-                items = []
             items_ = find_dict(instructions, 'entries', find_one=True)
             if items_:
-                items.extend(items_[0])
-
+                items = items_[0]
+            else:
+                items = []
             if product == 'Media':
                 if 'items' in items[0]['content']:
                     items = items[0]['content']['items']
@@ -2056,8 +2052,11 @@ class Client:
         if not instructions_:
             return Result([])
         instructions = instructions_[0]
-
         items = instructions[-1]['entries']
+        pinned_item = find_dict(instructions, 'entry', find_one=True)
+        if pinned_item:
+            items = [pinned_item] + items
+
         next_cursor = items[-1]['content']['value']
         previous_cursor = items[-2]['content']['value']
 

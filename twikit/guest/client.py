@@ -223,7 +223,14 @@ class GuestClient:
         <User id="...">
         """
         response, _ = await self.gql.user_by_screen_name(screen_name)
-        return User(self, response['data']['user']['result'])
+
+        if 'user' not in response['data']:
+            raise UserNotFound('The user does not exist.')
+        user_data = response['data']['user']['result']
+        if user_data.get('__typename') == 'UserUnavailable':
+            raise UserUnavailable(user_data.get('message'))
+
+        return User(self, user_data)
 
     async def get_user_by_id(self, user_id: str) -> User:
         """

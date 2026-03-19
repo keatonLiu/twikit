@@ -86,7 +86,7 @@ class GuestClient:
 
         self.http = BaseSession(**kwargs)
         self.language = language
-        self.proxy = proxy or {}
+        self.proxy = proxy or ''
 
         self._token = TOKEN
         self._user_agent = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) '

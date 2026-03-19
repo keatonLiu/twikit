@@ -504,7 +504,7 @@ class Client:
                     },
                 ],
                 'link': 'next_link',
-                'castle_token':token,
+                'castle_token': token,
             }
         }, headers=self.castle_token.headers)
 
@@ -874,11 +874,15 @@ class Client:
         if product == 'Media' and cursor is not None:
             items = find_dict(instructions, 'moduleItems', find_one=True)[0]
         else:
-            items_ = find_dict(instructions, 'entries', find_one=True)
+            items_ = find_dict(instructions, 'entry', find_one=True)
             if items_:
-                items = items_[0]
+                items = [items_[0]]
             else:
                 items = []
+            items_ = find_dict(instructions, 'entries', find_one=True)
+            if items_:
+                items.extend(items_[0])
+
             if product == 'Media':
                 if 'items' in items[0]['content']:
                     items = items[0]['content']['items']

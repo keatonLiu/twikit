@@ -2055,7 +2055,7 @@ class Client:
         items = instructions[-1]['entries']
         pinned_item = find_dict(instructions, 'entry', find_one=True)
         if pinned_item:
-            items = [pinned_item] + items
+            items = [pinned_item[0]['entry']] + items
 
         next_cursor = items[-1]['content']['value']
         previous_cursor = items[-2]['content']['value']

@@ -109,7 +109,6 @@ class GuestClient:
         headers = kwargs.pop('headers', {})
 
         if not await self.client_transaction.is_inited():
-            cookies_backup = dict(self.http.cookies).copy()
             ct_headers = {
                 'Accept-Language': f'{self.language},{self.language.split("-")[0]};q=0.9',
                 'Cache-Control': 'no-cache',
@@ -117,12 +116,16 @@ class GuestClient:
                 'User-Agent': self._user_agent
             }
             await self.client_transaction.init(self.http, ct_headers)
-            self.http.cookies = cookies_backup
 
         tid = self.client_transaction.generate_transaction_id(method=method, path=urlparse(url).path)
+        if not tid:
+            self.logger.warning(f"Failed to generate transaction id for {method} {url}")
+
         headers['X-Client-Transaction-Id'] = tid
         if guest_id := self.http.cookies.get('guest_id'):
             headers['X-Xp-Forwarded-For'] = self.xpff.gen(guest_id)
+        else:
+            self.logger.warning(f"guest_id not found in cookies: {self.http.cookies}")
 
         response = await self.http.execute_request(method, url, headers=headers, **kwargs)
 

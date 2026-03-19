@@ -21,7 +21,9 @@ from ..errors import (
     ServerError,
     TooManyRequests,
     TwitterException,
-    Unauthorized
+    Unauthorized,
+    UserNotFound,
+    UserUnavailable,
 )
 from ..model.session import BaseSession
 from ..utils import Result, find_dict, find_entry_by_type
@@ -109,7 +111,6 @@ class GuestClient:
         headers = kwargs.pop('headers', {})
 
         if not await self.client_transaction.is_inited():
-            cookies_backup = dict(self.http.cookies).copy()
             ct_headers = {
                 'Accept-Language': f'{self.language},{self.language.split("-")[0]};q=0.9',
                 'Cache-Control': 'no-cache',
@@ -117,12 +118,16 @@ class GuestClient:
                 'User-Agent': self._user_agent
             }
             await self.client_transaction.init(self.http, ct_headers)
-            self.http.cookies = cookies_backup
 
         tid = self.client_transaction.generate_transaction_id(method=method, path=urlparse(url).path)
+        if not tid:
+            self.logger.warning(f"Failed to generate transaction id for {method} {url}")
+
         headers['X-Client-Transaction-Id'] = tid
         if guest_id := self.http.cookies.get('guest_id'):
             headers['X-Xp-Forwarded-For'] = self.xpff.gen(guest_id)
+        else:
+            self.logger.warning(f"guest_id not found in cookies: {self.http.cookies}")
 
         response = await self.http.execute_request(method, url, headers=headers, **kwargs)
 
@@ -223,7 +228,14 @@ class GuestClient:
         <User id="...">
         """
         response, _ = await self.gql.user_by_screen_name(screen_name)
-        return User(self, response['data']['user']['result'])
+
+        if 'user' not in response['data']:
+            raise UserNotFound('The user does not exist.')
+        user_data = response['data']['user']['result']
+        if user_data.get('__typename') == 'UserUnavailable':
+            raise UserUnavailable(user_data.get('message'))
+
+        return User(self, user_data)
 
     async def get_user_by_id(self, user_id: str) -> User:
         """

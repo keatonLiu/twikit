@@ -32,6 +32,8 @@ class ClientTransaction:
         self.init_lock = asyncio.Lock()
         self.session = None
         self.headers = {}
+        self._key_bytes_cache = None
+        self._animation_key_cache = None
 
     async def is_inited(self):
         async with self.init_lock:
@@ -73,8 +75,9 @@ class ClientTransaction:
         return element.get("content")
 
     @property
-    @lru_cache()
     def key_bytes(self):
+        if self._key_bytes_cache is not None:
+            return self._key_bytes_cache
         return list(base64.b64decode(bytes(self.key, 'utf-8')))
 
     @property
@@ -132,8 +135,9 @@ class ClientTransaction:
         return animation_key
 
     @property
-    @lru_cache()
     def animation_key(self):
+        if self._animation_key_cache is not None:
+            return self._animation_key_cache
         total_time = 4096
         # row_index, frame_time = [key_bytes[2] % 16, key_bytes[12] % 16 * (key_bytes[14] % 16) * (key_bytes[7] % 16)]
         # row_index, frame_time = [key_bytes[2] % 16, key_bytes[2] % 16 * (key_bytes[42] % 16) * (key_bytes[45] % 16)]
@@ -147,6 +151,17 @@ class ClientTransaction:
         target_time = float(frame_time) / total_time
         animation_key = self.animate(frame_row, target_time)
         return animation_key
+
+    def to_dict(self) -> dict:
+        return {
+            "key_bytes": self.key_bytes,
+            "animation_key": self.animation_key,
+        }
+
+    def from_dict(self, data: dict):
+        self._key_bytes_cache = data["key_bytes"]
+        self._animation_key_cache = data["animation_key"]
+        self.__inited = True
 
     def generate_transaction_id(self, method: str, path: str, time_now=None):
         time_now = time_now or math.floor(

@@ -714,8 +714,14 @@ class Client:
             for c in self.http.cookies
         ]
 
+        data = {
+            "cookies": cookies_dict,
+        }
+        if self.client_transaction._ClientTransaction__inited:
+            data["client_transaction"] = self.client_transaction.to_dict()
+
         with open(cookies_file, "w", encoding='utf-8') as f:
-            json.dump(cookies_dict, f, ensure_ascii=False, indent=4)
+            json.dump(data, f, ensure_ascii=False, indent=4)
 
     def set_cookies(self, cookies: dict | CookieJar, clear_cookies: bool = False) -> None:
         """
@@ -763,7 +769,16 @@ class Client:
         .set_cookies
         """
         with open(path, 'r', encoding='utf-8') as f:
-            cookies_list = json.load(f)
+            data = json.load(f)
+
+        # 新格式：{"cookies": [...], "client_transaction": {...}}
+        if isinstance(data, dict) and "cookies" in data:
+            cookies_list = data["cookies"]
+            if ct_data := data.get("client_transaction"):
+                self.client_transaction.from_dict(ct_data)
+        else:
+            # 旧格式：list 或简化 dict
+            cookies_list = data
 
         self.http.cookies.clear()
         if isinstance(cookies_list, dict):

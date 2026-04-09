@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import warnings
 from functools import partial
 from typing import Any, Literal
@@ -79,6 +80,7 @@ class GuestClient:
             proxy: str | None = None,
             **kwargs
     ) -> None:
+        self.logger = logging.getLogger(__name__)
         if 'proxies' in kwargs:
             message = (
                 "The 'proxies' argument is now deprecated. Use 'proxy' "

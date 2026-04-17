@@ -714,10 +714,10 @@ class Client:
             for c in self.http.cookies
         ]
 
-        data = {
+        data: dict = {
             "cookies": cookies_dict,
         }
-        if self.client_transaction._ClientTransaction__inited:
+        if self.client_transaction._ClientTransaction__inited: # noqa
             data["client_transaction"] = self.client_transaction.to_dict()
 
         with open(cookies_file, "w", encoding='utf-8') as f:

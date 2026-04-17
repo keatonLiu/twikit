@@ -93,8 +93,8 @@ class User:
         self.url: str = legacy.get('url')
         self.location: str = legacy['location']
         self.description: str = legacy['description']
-        self.description_urls: list = legacy['entities']['description']['urls']
-        self.urls: list = legacy['entities'].get('url', {}).get('urls')
+        self.description_urls: list = legacy['entities']['description'].get('urls', [])
+        self.urls: list = legacy['entities'].get('url', {}).get('urls', [])
         self.pinned_tweet_ids: list[str] = legacy['pinned_tweet_ids_str']
         self.is_blue_verified: bool = data['is_blue_verified']
         self.verified: bool = legacy['verified']

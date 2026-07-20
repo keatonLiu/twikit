@@ -21,6 +21,7 @@ from ..errors import (
     RequestTimeout,
     ServerError,
     TooManyRequests,
+    TweetNotAvailable,
     TwitterException,
     Unauthorized,
     UserNotFound,
@@ -353,7 +354,10 @@ class GuestClient:
         <Tweet id="123456789">
         """
         response, _ = await self.gql.tweet_result_by_rest_id(tweet_id)
-        return tweet_from_data(self, response)
+        tweet = tweet_from_data(self, response)
+        if tweet is None:
+            raise TweetNotAvailable(f'Tweet is not available: {tweet_id}')
+        return tweet
 
     async def get_user_highlights_tweets(
             self,

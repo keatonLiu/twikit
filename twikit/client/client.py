@@ -1792,6 +1792,11 @@ class Client:
             reply_next_cursor = None
             _fetch_more_replies = None
 
+        if tweet is None:
+            raise TweetNotAvailable(
+                f'Tweet is not available: {tweet_id}'
+            )
+
         tweet.replies = Result(
             replies_list,
             _fetch_more_replies,

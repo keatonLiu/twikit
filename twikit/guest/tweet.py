@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING
 
+from ..geo import Place
 from ..media import MEDIA_TYPE, _media_from_data
-from ..utils import find_dict
+from ..tweet import Poll
+from ..utils import find_dict, timestamp_to_datetime
 from .user import User
 
 if TYPE_CHECKING:
@@ -12,6 +15,15 @@ if TYPE_CHECKING:
 
 class Tweet:
     """
+    A tweet fetched via the guest (unauthenticated) client.
+
+    .. note::
+        The guest endpoint (``tweet_result_by_rest_id``) returns a single
+        tweet without its conversation, so ``replies`` is **not available**
+        and ``reply_to`` / ``related_tweets`` / ``thread`` are always
+        ``None``. Use the authenticated
+        :class:`~twikit.client.client.Client` if you need replies.
+
     Attributes
     ----------
     id : :class:`str`
@@ -108,7 +120,7 @@ class Tweet:
         self.possibly_sensitive: bool = legacy.get('possibly_sensitive')
         self.possibly_sensitive_editable: bool = legacy.get('possibly_sensitive_editable')
         self.quote_count: int = legacy['quote_count']
-        self._media: list = legacy['entities'].get('media')
+        self._media: list = legacy['entities'].get('media') or []
         self.reply_count: int = legacy['reply_count']
         self.favorite_count: int = legacy['favorite_count']
         self.favorited: bool = legacy['favorited']
@@ -125,6 +137,7 @@ class Tweet:
         self.view_count_state: str = data['views'].get('state') if 'views' in data else None
         self.has_community_notes: bool = data.get('has_birdwatch_notes')
 
+        self.quote: Tweet | None = None
         if data.get('quoted_status_result'):
             quoted_tweet = data.pop('quoted_status_result')['result']
             if 'tweet' in quoted_tweet:
@@ -218,6 +231,22 @@ class Tweet:
                 continue
             m.append(media_obj)
         return m
+
+    @property
+    def created_at_datetime(self) -> datetime:
+        return timestamp_to_datetime(self.created_at)
+
+    @property
+    def place(self) -> Place | None:
+        if self._place_data:
+            return Place(self._client, self._place_data)
+        return None
+
+    @property
+    def poll(self) -> Poll | None:
+        if self._poll_data:
+            return Poll(self._client, self._poll_data, self)
+        return None
 
     async def update(self) -> None:
         new = await self._client.get_tweet_by_id(self.id)

@@ -114,6 +114,9 @@ class User:
         self.translator_type: str = legacy['translator_type']
         self.withheld_in_countries: list[str] = legacy.get('withheld_in_countries', [])
         self.protected: bool = legacy.get('protected', False)
+        self.can_dm: bool = legacy.get('can_dm')
+        self.can_media_tag: bool = legacy.get('can_media_tag')
+        self.want_retweets: bool = legacy.get('want_retweets')
 
     @property
     def created_at_datetime(self) -> datetime:

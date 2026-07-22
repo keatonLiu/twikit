@@ -19,6 +19,9 @@ A Simple Twitter API Scraper
 
 You can use functions such as posting or searching for tweets without an API key using this library.
 
+> [!IMPORTANT]
+> **This fork routes every request through [noble-tls](https://github.com/keatonLiu/noble-tls) to impersonate real browser TLS fingerprints (JA3/JA4).** Traffic blends in with a genuine browser at the TLS layer, getting past the fingerprint-based bot detection that ordinary `httpx` / `requests`-based clients can't evade.
+
 - [Documentation (English)](https://twikit.readthedocs.io/en/latest/twikit.html)
 
 
@@ -32,6 +35,10 @@ You can use functions such as posting or searching for tweets without an API key
 
 
 ## Features
+
+### 🛡️ Browser TLS Fingerprint Bypass
+
+The headline feature of this fork: all HTTP traffic goes through [**noble-tls**](https://github.com/keatonLiu/noble-tls) (a Python binding to the Go [`tls-client`](https://github.com/bogdanfinn/tls-client)) instead of `httpx` / `requests`. It replays a real browser's TLS/JA3 handshake — Chrome by default, with randomized TLS extension ordering — so requests are indistinguishable from a genuine browser at the TLS layer and slip past fingerprint-based bot detection.
 
 ### No API Key Required
 
@@ -58,10 +65,10 @@ By using Twikit, you can access functionalities such as the following:
 
 ## Installing
 
+This fork is installed from GitHub:
+
 ```bash
-
-pip install twikit
-
+pip install git+https://github.com/keatonLiu/twikit.git
 ```
 
 

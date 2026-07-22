@@ -18,6 +18,9 @@
 
 本库提供的函数允许你进行对推特的操作，如发布或搜索推文，并且无需开发者 API 密钥。
 
+> [!IMPORTANT]
+> **此 fork 的所有请求都通过 [noble-tls](https://github.com/keatonLiu/noble-tls) 转发，模拟真实浏览器的 TLS 指纹（JA3/JA4）。** 流量在 TLS 层与真实浏览器无异，能绕过普通 `httpx` / `requests` 客户端无法规避的指纹型机器人检测。
+
 - [文档（英文）](https://twikit.readthedocs.io/en/latest/twikit.html)
 
 [Discord 服务器](https://discord.gg/nCrByrr8cX)
@@ -25,6 +28,10 @@
 
 
 ## 特性
+
+### 🛡️ 浏览器 TLS 指纹绕过
+
+此 fork 的核心特性：所有 HTTP 流量都经由 [**noble-tls**](https://github.com/keatonLiu/noble-tls)（对 Go [`tls-client`](https://github.com/bogdanfinn/tls-client) 的 Python 封装）发出，而非 `httpx` / `requests`。它会重放真实浏览器的 TLS/JA3 握手——默认 Chrome，并随机化 TLS 扩展顺序——使请求在 TLS 层与真实浏览器无法区分，从而绕过基于指纹的机器人检测。
 
 ### 无需开发者 API 密钥
 
@@ -51,10 +58,10 @@
 
 ## 安装
 
+此 fork 需从 GitHub 安装：
+
 ```bash
-
-pip install twikit
-
+pip install git+https://github.com/keatonLiu/twikit.git
 ```
 
 

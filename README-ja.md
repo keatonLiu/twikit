@@ -16,6 +16,9 @@
 
 このライブラリを使用することで、APIキーなしで、ツイートの投稿や検索などの機能を使用することができます。
 
+> [!IMPORTANT]
+> **この fork はすべてのリクエストを [noble-tls](https://github.com/keatonLiu/noble-tls) 経由で送信し、実際のブラウザの TLS フィンガープリント（JA3/JA4）を偽装します。** トラフィックは TLS レイヤーで本物のブラウザと見分けがつかず、通常の `httpx` / `requests` ベースのクライアントでは回避できないフィンガープリントベースのボット検出をすり抜けます。
+
 - [ドキュメント](https://twikit.readthedocs.io/en/latest/twikit.html)
 
 [Discord](https://discord.gg/nCrByrr8cX)
@@ -23,6 +26,10 @@
 
 
 ## 特徴
+
+### 🛡️ ブラウザ TLS フィンガープリント回避
+
+この fork の目玉機能：すべての HTTP トラフィックは `httpx` / `requests` ではなく [**noble-tls**](https://github.com/keatonLiu/noble-tls)（Go 製 [`tls-client`](https://github.com/bogdanfinn/tls-client) の Python バインディング）経由で送信されます。実際のブラウザの TLS/JA3 ハンドシェイクを再現し——デフォルトは Chrome、TLS 拡張の順序もランダム化——リクエストは TLS レイヤーで本物のブラウザと区別できないため、フィンガープリントベースのボット検出を回避できます。
 
 ### APIキー不要
 
@@ -49,10 +56,10 @@
 
 ## インストール
 
+この fork は GitHub からインストールします：
+
 ```bash
-
-pip install twikit
-
+pip install git+https://github.com/keatonLiu/twikit.git
 ```
 
 

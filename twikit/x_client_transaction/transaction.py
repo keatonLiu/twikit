@@ -48,11 +48,17 @@ class ClientTransaction:
 
     async def get_indices(self):
         key_byte_indices = []
-        on_demand_file_index = ON_DEMAND_FILE_REGEX.search(str(self.home_page_response)).group(1)
+        on_demand_match = ON_DEMAND_FILE_REGEX.search(str(self.home_page_response))
+        if on_demand_match is None:
+            raise Exception("Couldn't locate ondemand.s chunk in home page (new x.com frontend?)")
+        on_demand_file_index = on_demand_match.group(1)
         regex = re.compile(
             rf',{on_demand_file_index}:\"(?!.*ondemand\.s)(.*?)\"'
         )
-        filename = regex.search(str(self.home_page_response)).group(1)
+        filename_match = regex.search(str(self.home_page_response))
+        if filename_match is None:
+            raise Exception("Couldn't locate ondemand.s filename in home page")
+        filename = filename_match.group(1)
         file_url = ON_DEMAND_FILE_URL.format(filename=filename)
         on_demand_file_response = await self.session.request(method="GET", url=file_url, headers=self.headers)
         on_demand_file_response_text = on_demand_file_response.text

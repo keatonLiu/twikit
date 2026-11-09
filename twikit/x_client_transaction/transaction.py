@@ -19,8 +19,22 @@ INDICES_REGEX = re.compile(
     r"""(\(\w\[(\d{1,2})],\s*16\))+""", flags=(re.VERBOSE | re.MULTILINE))
 ON_DEMAND_FILE_URL: str = "https://abs.twimg.com/responsive-web/client-web/ondemand.s.{filename}a.js"
 
+X_WEB_ENTRY_REGEX = re.compile(r"https://abs\.twimg\.com/x-web/x-web/entry-client[\w-]*\.js")
+X_WEB_STARTUP_DYNAMIC_REGEX = re.compile(r"startup-dynamic-[\w-]+\.js")
+X_WEB_SIGN_REGEX = re.compile(r"sign\.o-[\w-]+\.js")
+X_WEB_ASSET_URL: str = "https://abs.twimg.com/x-web/x-web/assets/{filename}"
+# 2026-11: x-web 改成纯 hash 文件名（assets/BPD9wlqr.js），不再有 startup-dynamic / sign.o 前缀。
+# 链路：entry-client-*.js 引用的 assets/*.js 里，设置 x-client-transaction-id 头的那个 chunk
+# 会 import(`./<hash>.js`) 懒加载签名模块，签名模块里才有 (e[15],16) 这类 indices。
+X_WEB_ENTRY_ASSET_REGEX = re.compile(r"""["'`](?:\./)?(?:assets/)?([\w-]+\.js)["'`]""")
+X_WEB_DYNAMIC_IMPORT_REGEX = re.compile(r"""import\(\s*["'`](?:\./)?([\w-]+\.js)["'`]\s*\)""")
+X_WEB_TX_HEADER = "x-client-transaction-id"
+
 
 class ClientTransaction:
+    # entry-client url -> (row_index, key_bytes_indices)。同一前端版本 indices 不变，
+    # 避免每个 client 激活都重新下载 ~2MB 的 x-web chunk。
+    _INDICES_CACHE: dict = {}
     ADDITIONAL_RANDOM_NUMBER = 3
     DEFAULT_KEYWORD = "obfiowerehiring"
     DEFAULT_ROW_INDEX = None
@@ -46,20 +60,71 @@ class ClientTransaction:
         self.DEFAULT_ROW_INDEX, self.DEFAULT_KEY_BYTES_INDICES = await self.get_indices()
         self.__inited = True
 
-    async def get_indices(self):
-        key_byte_indices = []
-        on_demand_match = ON_DEMAND_FILE_REGEX.search(str(self.home_page_response))
+    async def _get_text(self, url: str) -> str:
+        response = await self.session.request(method="GET", url=url, headers=self.headers)
+        return response.text
+
+    async def _find_sign_file_url(self) -> str | None:
+        """
+        新版 x-web 前端（未登录页）不再有 ondemand.s，签名逻辑在
+        entry-client-*.js -> startup-dynamic-*.js -> sign.o-*.js 里。
+        """
+        page = str(self.home_page_response)
+        entry_match = X_WEB_ENTRY_REGEX.search(page)
+        if entry_match is None:
+            return None
+        entry_text = await self._get_text(entry_match.group(0))
+        startup_match = X_WEB_STARTUP_DYNAMIC_REGEX.search(entry_text)
+        if startup_match is not None:
+            startup_text = await self._get_text(X_WEB_ASSET_URL.format(filename=startup_match.group(0)))
+            sign_match = X_WEB_SIGN_REGEX.search(startup_text)
+            if sign_match is not None:
+                return X_WEB_ASSET_URL.format(filename=sign_match.group(0))
+        return await self._find_hashed_sign_file_url(entry_text)
+
+    async def _find_hashed_sign_file_url(self, entry_text: str) -> str | None:
+        """hash 文件名版本：找设置 x-client-transaction-id 的 chunk，再取其中懒加载的、含 indices 的模块。"""
+        assets = list(dict.fromkeys(X_WEB_ENTRY_ASSET_REGEX.findall(entry_text)))
+        for asset in assets:
+            text = await self._get_text(X_WEB_ASSET_URL.format(filename=asset))
+            if X_WEB_TX_HEADER not in text:
+                continue
+            for dyn in dict.fromkeys(X_WEB_DYNAMIC_IMPORT_REGEX.findall(text)):
+                url = X_WEB_ASSET_URL.format(filename=dyn)
+                if INDICES_REGEX.search(await self._get_text(url)):
+                    return url
+        return None
+
+    async def _find_on_demand_file_url(self) -> str | None:
+        page = str(self.home_page_response)
+        on_demand_match = ON_DEMAND_FILE_REGEX.search(page)
         if on_demand_match is None:
-            raise Exception("Couldn't locate ondemand.s chunk in home page (new x.com frontend?)")
+            return None
         on_demand_file_index = on_demand_match.group(1)
         regex = re.compile(
             rf',{on_demand_file_index}:\"(?!.*ondemand\.s)(.*?)\"'
         )
-        filename_match = regex.search(str(self.home_page_response))
+        filename_match = regex.search(page)
         if filename_match is None:
-            raise Exception("Couldn't locate ondemand.s filename in home page")
-        filename = filename_match.group(1)
-        file_url = ON_DEMAND_FILE_URL.format(filename=filename)
+            return None
+        return ON_DEMAND_FILE_URL.format(filename=filename_match.group(1))
+
+    async def get_indices(self):
+        entry_match = X_WEB_ENTRY_REGEX.search(str(self.home_page_response))
+        cache_key = entry_match.group(0) if entry_match else None
+        if cache_key and cache_key in self._INDICES_CACHE:
+            return self._INDICES_CACHE[cache_key]
+        result = await self._get_indices_uncached()
+        if cache_key:
+            self._INDICES_CACHE[cache_key] = result
+        return result
+
+    async def _get_indices_uncached(self):
+        key_byte_indices = []
+        # 旧前端（登录态 /home）用 ondemand.s；新 x-web 前端（未登录页）用 sign.o / hash chunk
+        file_url = await self._find_on_demand_file_url() or await self._find_sign_file_url()
+        if file_url is None:
+            raise Exception("Couldn't locate ondemand.s / sign.o chunk in home page")
         on_demand_file_response = await self.session.request(method="GET", url=file_url, headers=self.headers)
         on_demand_file_response_text = on_demand_file_response.text
         key_byte_indices_match = INDICES_REGEX.finditer(

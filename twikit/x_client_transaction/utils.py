@@ -21,7 +21,11 @@ async def handle_x_migration(session, headers):
     if migration_form:
         url = migration_form.attrs.get("action", "https://x.com/x/migrate") + "/?mx=2"
         method = migration_form.attrs.get("method", "POST")
-        request_payload = {input_field.get("name"): input_field.get("value") for input_field in migration_form.select("input")}
+        request_payload = {
+            str(name): input_field.get("value")
+            for input_field in migration_form.select("input")
+            if (name := input_field.get("name")) is not None
+        }
         response = await session.request(method=method, url=url, data=request_payload, headers=headers)
         home_page = bs4.BeautifulSoup(response.content, 'lxml')
     return home_page

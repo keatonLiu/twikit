@@ -53,12 +53,34 @@ class ClientTransaction:
         async with self.init_lock:
             return self.__inited
 
+    INIT_RETRIES = 3
+
     async def init(self, session, headers):
         self.session = session
         self.headers = headers
-        self.home_page_response = await handle_x_migration(session, headers)
-        self.DEFAULT_ROW_INDEX, self.DEFAULT_KEY_BYTES_INDICES = await self.get_indices()
+        # 偶发：代理/风控返回的 /home 不是完整应用页（无 ondemand.s / entry-client），
+        # 或某个 x-web chunk 拉取失败。重新拉首页即可恢复，最后一次仍失败才抛出。
+        last_exc = None
+        for attempt in range(self.INIT_RETRIES):
+            self.home_page_response = await handle_x_migration(session, headers)
+            try:
+                self.DEFAULT_ROW_INDEX, self.DEFAULT_KEY_BYTES_INDICES = await self.get_indices()
+                break
+            except Exception as e:
+                last_exc = e
+                if attempt < self.INIT_RETRIES - 1:
+                    await asyncio.sleep(1 + attempt)
+        else:
+            raise Exception(f"{last_exc} (after {self.INIT_RETRIES} attempts; {self._page_diag()})") from last_exc
         self.__inited = True
+
+    def _page_diag(self) -> str:
+        page = self.home_page_response
+        text = str(page) if page is not None else ""
+        title = page.title.get_text(strip=True) if page is not None and page.title else None
+        return (f"home page len={len(text)} title={title!r} "
+                f"has_entry={bool(X_WEB_ENTRY_REGEX.search(text))} "
+                f"has_verification={'twitter-site-verification' in text} head={text[:200]!r}")
 
     async def _get_text(self, url: str) -> str:
         response = await self.session.request(method="GET", url=url, headers=self.headers)
